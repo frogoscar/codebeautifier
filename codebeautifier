@@ -151,7 +151,7 @@ if __name__ == "__main__":
                     raise Exception("Unable to find astyle '{0}'".format(args.astyle))
                 else:
                     formatter = FileFormatter(args.astyle,
-                        "--style=google --max-code-length={0} -n".format(args.line_length))
+                                              "--style=google --max-code-length={0} -n".format(args.line_length))
 
             # Format with clang-format
             else:
@@ -160,7 +160,7 @@ if __name__ == "__main__":
                     raise Exception("Unable to find clang-format '{0}'".format(args.clang_format))
                 else:
                     formatter = FileFormatter(args.clang_format,
-                        "-i -style=\"{{BasedOnStyle: Google, ColumnLimit: {0}}}\"".format(args.line_length))
+                                              "-i -style=\"{{BasedOnStyle: Google, ColumnLimit: {0}}}\"".format(args.line_length))
 
 
             for p in args.targets:
