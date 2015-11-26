@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+
+import re
+import os
+import sys
+import shutil
+import pwd
+import argparse
+import subprocess
+import uuid
+import distutils.spawn
+from abc import abstractmethod
+
+class PathProcessor:
+  def processPath(self, path, exceptions):
+    if(os.path.isdir(path)):
+      self.processDir(os.path.abspath(path), exceptions)
+    else:
+      self.processFile(os.path.abspath(path), exceptions)
+
+  def processDir(self, path, exceptions):
+    shallBeAvoided = False
+    if(exceptions != None):
+      for e in exceptions :
+        shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
+    if(not shallBeAvoided):
+      if os.path.isdir(path):
+        lst = os.listdir(path)
+        for p in lst:
+          folder = os.path.join(path, p)
+          if os.path.isdir(folder):
+            self.processDir(folder, exceptions)
+          else:
+            self.processFile(folder, exceptions)
+      else:
+        raise RuntimeError("'{0}' is not a directory".format(p))
+
+  @abstractmethod
+  def processFile(self, path):
+    pass
+
+class FileChecker(PathProcessor):
+  toolPath = None
+  lineLength = None
+
+  def __init__(self, toolPath, lineLength):
+    self.toolPath = toolPath
+    self.lineLength = lineLength
+
+  def processFile(self, path, exceptions):
+    shallBeAvoided = False
+    if(exceptions != None):
+      for e in exceptions :
+        shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
+    if(not shallBeAvoided):
+      command = "{0} --linelength={1} --filter=-whitespace/indent,-build/c++11,-runtime/references {2}".format(self.toolPath, self.lineLength, path)
+      print(command)
+      p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
+      p.communicate()
+      if p.returncode != 0:
+       raise RuntimeError("Error when executing cpplint")
+
+class FileFormatter(PathProcessor):
+  toolPath = None
+  lineLength = None
+
+  def __init__(self, toolPath, lineLength):
+    self.toolPath = toolPath
+    self.lineLength = lineLength
+
+  def processFile(self, path, exceptions):
+    shallBeAvoided = False
+    print(exceptions)
+    if(exceptions != None):
+      for e in exceptions :
+        shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
+    if(not shallBeAvoided):
+      if(os.path.isfile(path)):
+        command = "{0} -A14 --max-code-length={1} -n {2}".format(self.toolPath, self.lineLength, path)
+        print(command)
+        p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
+        p.communicate()
+        if p.returncode != 0:
+          raise RuntimeError("Error when executing astyle")
+      else:
+        raise RuntimeError("{0} is not a file".format(path))
+
+class CmdLine:
+  @staticmethod
+  def parseArgs(rawArgs):
+    # Create main parser
+    parser = argparse.ArgumentParser(prog="codebeautifer", description='Helper for cpplint and astyle.')
+    rootSubparsers = parser.add_subparsers(dest="function")
+
+    formatParser = rootSubparsers.add_parser('format', help='Format files')
+    formatParser.add_argument('--tool-path', '-a', help='Path to tool', type=str, default="astyle")
+    formatParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
+    formatParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
+    formatParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)")
+
+    checkParser = rootSubparsers.add_parser('check', help='Check files')
+    checkParser.add_argument('--tool-path', '-a', help='Path to tool', type=str, default="cpplint")
+    checkParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
+    checkParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
+    checkParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)", default=None)
+
+    return parser.parse_args(rawArgs[1:])
+
+if __name__ == "__main__":
+  try:
+    args = CmdLine.parseArgs(sys.argv)
+    res = distutils.spawn.find_executable(args.tool_path)
+    if res is None:
+      raise Exception("Unable to find tool '{0}'".format(args.tool_path))
+
+    if args.function == "format":
+      formatter = FileFormatter(args.tool_path, args.line_length)
+      for p in args.targets:
+        formatter.processPath(p, args.exceptions)
+    elif args.function == "check":
+     checker = FileChecker(args.tool_path, args.line_length)
+     for p in args.targets:
+        checker.processPath(p, args.exceptions)
+    else:
+      sys.exit("An error occured: Unknown action to perform")
+    sys.exit()
+  except Exception as e:
+    sys.exit("An error occured: {0}".format(e))
