@@ -59,7 +59,7 @@ class PathProcessor:
                 raise RuntimeError("'{0}' is not a directory".format(p))
 
     @abstractmethod
-    def processFile(self, path):
+    def processFile(self, path, exceptions):
         pass
 
 class FileChecker(PathProcessor):
