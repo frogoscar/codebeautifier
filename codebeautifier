@@ -3,11 +3,8 @@
 import re
 import os
 import sys
-import shutil
-import pwd
 import argparse
 import subprocess
-import uuid
 import distutils.spawn
 from abc import abstractmethod
 
