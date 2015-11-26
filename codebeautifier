@@ -11,6 +11,32 @@ import uuid
 import distutils.spawn
 from abc import abstractmethod
 
+
+def searchProgram(match):
+    regex = re.compile(match)
+    paths = os.getenv("PATH").split(":")
+    candidates = []
+    visited = {}
+
+    # For all directories in $PATH
+    for p in paths:
+        if os.path.isdir(p):
+            # For all files in a subdirectory
+            for f in os.listdir(p):
+                absfile = os.path.join(p, f)
+                # Directory was not visited before
+                if not absfile in visited:
+                    # File in directory is an executable file
+                    if os.path.isfile(absfile) and os.access(absfile, os.X_OK):
+                        # It fulfills the regex
+                        if regex.match(f) != None:
+                            candidates.append(absfile)
+                    # Mark the directory to visit it only once
+                    visited[absfile] = True
+
+    return candidates
+
+
 class PathProcessor:
   def processPath(self, path, exceptions):
     if(os.path.isdir(path)):
@@ -80,7 +106,7 @@ class FileFormatter(PathProcessor):
         p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
         p.communicate()
         if p.returncode != 0:
-          raise RuntimeError("Error when executing astyle")
+          raise RuntimeError("Error when executing {0}".format(self.toolPath))
       else:
         raise RuntimeError("{0} is not a file".format(path))
 
@@ -92,8 +118,8 @@ class CmdLine:
     rootSubparsers = parser.add_subparsers(dest="function")
 
     formatParser = rootSubparsers.add_parser('format', help='Format files')
-    formatParser.add_argument('--clang-format', '-c', help='Path to clang-format', type=str)
-    formatParser.add_argument('--astyle', '-a', help='Path to astyle', type=str, default="astyle")
+    formatParser.add_argument('--clang-format', '-c', help='Path to clang-format', type=str, default=None)
+    formatParser.add_argument('--astyle', '-a', help='Path to astyle', type=str, default=None)
     formatParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
     formatParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
     formatParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)")
@@ -112,24 +138,31 @@ if __name__ == "__main__":
 
     # Format option
     if args.function == "format":
+      # Use clang-format by default if nothing is specified
+      if args.clang_format == None and args.astyle == None:
+          l = searchProgram(r"clang-format-[1-9]\.[0-9]|^clang-format$")
+          if len(l) == 0:
+              raise Exception("clang-format is not present in your PATH")
+          args.clang_format = l[0]
+          print "clang-format was not specified... using {0}...".format(args.clang_format)
+
+      # Format with astyle
+      if args.astyle != None:
+        res = distutils.spawn.find_executable(args.astyle)
+        if res is None:
+          raise Exception("Unable to find astyle '{0}'".format(args.astyle))
+        else:
+          formatter = FileFormatter(args.astyle,
+                  "--style=google --max-code-length={0} -n".format(args.line_length))
 
       # Format with clang-format
-      if args.clang_format != None:
+      else:
         res = distutils.spawn.find_executable(args.clang_format)
         if res is None:
           raise Exception("Unable to find clang-format '{0}'".format(args.clang_format))
         else:
           formatter = FileFormatter(args.clang_format,
                   "-i -style=\"{{BasedOnStyle: Google, ColumnLimit: {0}}}\"".format(args.line_length))
-
-      # Format with astyle
-      else:
-        res = distutils.spawn.find_executable(args.astyle)
-        if res is None:
-          raise Exception("Unable to find astyle '{0}'".format(args.astyle))
-        else:
-          formatter = FileFormatter(args.astyle,
-                  "-A14 --max-code-length={0} -n".format(args.line_length))
 
 
       for p in args.targets:
