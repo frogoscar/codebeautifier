@@ -62,21 +62,20 @@ class FileChecker(PathProcessor):
 
 class FileFormatter(PathProcessor):
   toolPath = None
-  lineLength = None
+  toolArgs = None
 
-  def __init__(self, toolPath, lineLength):
+  def __init__(self, toolPath, toolArgs):
     self.toolPath = toolPath
-    self.lineLength = lineLength
+    self.toolArgs = toolArgs
 
   def processFile(self, path, exceptions):
     shallBeAvoided = False
-    print(exceptions)
     if(exceptions != None):
       for e in exceptions :
         shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
     if(not shallBeAvoided):
       if(os.path.isfile(path)):
-        command = "{0} -A14 --max-code-length={1} -n {2}".format(self.toolPath, self.lineLength, path)
+        command = "{0} {1} {2}".format(self.toolPath, self.toolArgs, path)
         print(command)
         p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
         p.communicate()
@@ -93,13 +92,14 @@ class CmdLine:
     rootSubparsers = parser.add_subparsers(dest="function")
 
     formatParser = rootSubparsers.add_parser('format', help='Format files')
-    formatParser.add_argument('--tool-path', '-a', help='Path to tool', type=str, default="astyle")
+    formatParser.add_argument('--clang-format', '-c', help='Path to clang-format', type=str)
+    formatParser.add_argument('--astyle', '-a', help='Path to astyle', type=str, default="astyle")
     formatParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
     formatParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
     formatParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)")
 
     checkParser = rootSubparsers.add_parser('check', help='Check files')
-    checkParser.add_argument('--tool-path', '-a', help='Path to tool', type=str, default="cpplint")
+    checkParser.add_argument('--tool-path', '-t', help='Path to tool', type=str, default="cpplint")
     checkParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
     checkParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
     checkParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)", default=None)
@@ -109,14 +109,33 @@ class CmdLine:
 if __name__ == "__main__":
   try:
     args = CmdLine.parseArgs(sys.argv)
-    res = distutils.spawn.find_executable(args.tool_path)
-    if res is None:
-      raise Exception("Unable to find tool '{0}'".format(args.tool_path))
 
+    # Format option
     if args.function == "format":
-      formatter = FileFormatter(args.tool_path, args.line_length)
+
+      # Format with clang-format
+      if args.clang_format != None:
+        res = distutils.spawn.find_executable(args.clang_format)
+        if res is None:
+          raise Exception("Unable to find clang-format '{0}'".format(args.clang_format))
+        else:
+          formatter = FileFormatter(args.clang_format,
+                  "-i -style=\"{{BasedOnStyle: Google, ColumnLimit: {0}}}\"".format(args.line_length))
+
+      # Format with astyle
+      else:
+        res = distutils.spawn.find_executable(args.astyle)
+        if res is None:
+          raise Exception("Unable to find astyle '{0}'".format(args.astyle))
+        else:
+          formatter = FileFormatter(args.astyle,
+                  "-A14 --max-code-length={0} -n".format(args.line_length))
+
+
       for p in args.targets:
         formatter.processPath(p, args.exceptions)
+
+     # Check option
     elif args.function == "check":
      checker = FileChecker(args.tool_path, args.line_length)
      for p in args.targets:
