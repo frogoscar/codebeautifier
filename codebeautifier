@@ -39,17 +39,17 @@ def searchProgram(match):
 
 class PathProcessor:
     def processPath(self, path, exceptions):
-        if(os.path.isdir(path)):
+        if os.path.isdir(path):
             self.processDir(os.path.abspath(path), exceptions)
         else:
             self.processFile(os.path.abspath(path), exceptions)
 
     def processDir(self, path, exceptions):
         shallBeAvoided = False
-        if(exceptions != None):
-            for e in exceptions :
+        if exceptions != None:
+            for e in exceptions:
                 shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
-        if(not shallBeAvoided):
+        if not shallBeAvoided:
             if os.path.isdir(path):
                 lst = os.listdir(path)
                 for p in lst:
@@ -76,12 +76,12 @@ class FileChecker(PathProcessor):
 
     def processFile(self, path, exceptions):
         shallBeAvoided = False
-        if(exceptions != None):
-            for e in exceptions :
+        if exceptions != None:
+            for e in exceptions:
                 shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
-        if(not shallBeAvoided):
+        if not shallBeAvoided:
             command = "{0} --linelength={1} --filter=-whitespace/indent,-build/c++11,-runtime/references {2}".format(self.toolPath, self.lineLength, path)
-            print(command)
+            print command
         p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
         p.communicate()
         if p.returncode != 0:
@@ -97,13 +97,13 @@ class FileFormatter(PathProcessor):
 
     def processFile(self, path, exceptions):
         shallBeAvoided = False
-        if(exceptions != None):
-            for e in exceptions :
+        if exceptions != None:
+            for e in exceptions:
                 shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
-        if(not shallBeAvoided):
-            if(os.path.isfile(path)):
+        if not shallBeAvoided:
+            if os.path.isfile(path):
                 command = "{0} {1} {2}".format(self.toolPath, self.toolArgs, path)
-                print(command)
+                print command
                 p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
                 p.communicate()
                 if p.returncode != 0:
