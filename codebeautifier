@@ -34,7 +34,7 @@ def searchProgram(match):
     return candidates
 
 
-class PathProcessor:
+class PathProcessor(object):
     def processPath(self, path, exceptions):
         if os.path.isdir(path):
             self.processDir(os.path.abspath(path), exceptions)
@@ -108,7 +108,7 @@ class FileFormatter(PathProcessor):
             else:
                 raise RuntimeError("{0} is not a file".format(path))
 
-class CmdLine:
+class CmdLine(object):
     @staticmethod
     def parseArgs(rawArgs):
         # Create main parser
