@@ -180,58 +180,54 @@ class FileFormatter(PathProcessor):
             else:
                 raise RuntimeError("{0} is not a file".format(path))
 
-class CmdLine(object):
-    """Helper to parse command-line arguments
+
+def parseArgs(rawArgs):
+    """Parse command-line arguments and returns the parser
+
+    Args:
+        rawArgs (list): The list program arguments
+
+    Returns:
+        The parser fully set
     """
 
-    @staticmethod
-    def parseArgs(rawArgs):
-        """Parse command-line arguments and returns the parser
+    # Create main parser
+    parser = argparse.ArgumentParser(prog="codebeautifer",
+                                     description='Coding style helper')
+    rootSubparsers = parser.add_subparsers(dest="function")
 
-        Args:
-            rawArgs (list): The list program arguments
+    # FORMAT
+    formatParser = rootSubparsers.add_parser('format', help='Format files')
+    formatParser.add_argument('--clang-format', '-c',
+                              help='Path to clang-format',
+                              action="store_const", const="clang-format")
+    formatParser.add_argument('--astyle', '-a', help='Path to astyle',
+                              action='store_const', const="astyle")
+    formatParser.add_argument('--line-length', "-l", help='Line length',
+                              type=int, default=120)
+    formatParser.add_argument("targets", type=str, nargs="+",
+                              metavar="files or directories")
+    formatParser.add_argument("--exceptions", "-e", type=str, nargs="*",
+                              metavar="Unprocessed paths")
 
-        Returns:
-            The parser fully set
-        """
+    # CHECK
+    checkParser = rootSubparsers.add_parser('check', help='Check files')
+    checkParser.add_argument('--cpplint', '-c', help='Path to cpplint',
+                             action='store_const', const="cpplint")
+    checkParser.add_argument('--pylint', '-p', help='Path to pylint',
+                             action='store_const', const="pylint")
+    checkParser.add_argument('--line-length', "-l", help='Line length',
+                             type=int, default=120)
+    checkParser.add_argument("targets", type=str, nargs="+",
+                             metavar="files or directories")
+    checkParser.add_argument("--exceptions", "-e", type=str, nargs="*",
+                             metavar="Unprocessed paths")
 
-        # Create main parser
-        parser = argparse.ArgumentParser(prog="codebeautifer",
-                                         description='Coding style helper')
-        rootSubparsers = parser.add_subparsers(dest="function")
-
-        # FORMAT
-        formatParser = rootSubparsers.add_parser('format', help='Format files')
-        formatParser.add_argument('--clang-format', '-c',
-                                  help='Path to clang-format',
-                                  action="store_const", const="clang-format")
-        formatParser.add_argument('--astyle', '-a', help='Path to astyle',
-                                  action='store_const', const="astyle")
-        formatParser.add_argument('--line-length', "-l", help='Line length',
-                                  type=int, default=120)
-        formatParser.add_argument("targets", type=str, nargs="+",
-                                  metavar="files or directories")
-        formatParser.add_argument("--exceptions", "-e", type=str, nargs="*",
-                                  metavar="Unprocessed paths")
-
-        # CHECK
-        checkParser = rootSubparsers.add_parser('check', help='Check files')
-        checkParser.add_argument('--cpplint', '-c', help='Path to cpplint',
-                                 action='store_const', const="cpplint")
-        checkParser.add_argument('--pylint', '-p', help='Path to pylint',
-                                 action='store_const', const="pylint")
-        checkParser.add_argument('--line-length', "-l", help='Line length',
-                                 type=int, default=120)
-        checkParser.add_argument("targets", type=str, nargs="+",
-                                 metavar="files or directories")
-        checkParser.add_argument("--exceptions", "-e", type=str, nargs="*",
-                                 metavar="Unprocessed paths")
-
-        return parser.parse_args(rawArgs[1:])
+    return parser.parse_args(rawArgs[1:])
 
 if __name__ == "__main__":
     try:
-        args = CmdLine.parseArgs(sys.argv)
+        args = parseArgs(sys.argv)
 
         # Format option
         if args.function == "format":
@@ -279,6 +275,7 @@ if __name__ == "__main__":
                 res = distutils.spawn.find_executable(args.cpplint)
                 if res is None:
                     raise Exception("Unable to find {0}".format(args.cpplint))
+
                 checker = FileChecker(args.cpplint,
                                       "--linelength={0} " \
                                       "--filter=-whitespace/indent," \
