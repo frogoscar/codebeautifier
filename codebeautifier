@@ -63,13 +63,12 @@ class PathProcessor(object):
         pass
 
 class FileChecker(PathProcessor):
-
     toolPath = None
-    lineLength = None
+    toolArgs = None
 
-    def __init__(self, toolPath, lineLength):
+    def __init__(self, toolPath, toolArgs = ""):
         self.toolPath = toolPath
-        self.lineLength = lineLength
+        self.toolArgs = toolArgs
 
     def processFile(self, path, exceptions):
         shallBeAvoided = False
@@ -77,12 +76,12 @@ class FileChecker(PathProcessor):
             for e in exceptions:
                 shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
         if not shallBeAvoided:
-            command = "{0} --linelength={1} --filter=-whitespace/indent,-build/c++11,-runtime/references {2}".format(self.toolPath, self.lineLength, path)
+            command = "{0} {1} {2}".format(self.toolPath, self.toolArgs, path)
             print command
         p = subprocess.Popen(command, shell=True, cwd=os.path.dirname(os.path.realpath(self.toolPath)))
         p.communicate()
         if p.returncode != 0:
-            raise RuntimeError("Error when executing cpplint")
+            raise RuntimeError("Error when executing {0}".format(self.toolPath))
 
 class FileFormatter(PathProcessor):
     toolPath = None
@@ -116,14 +115,15 @@ class CmdLine(object):
         rootSubparsers = parser.add_subparsers(dest="function")
 
         formatParser = rootSubparsers.add_parser('format', help='Format files')
-        formatParser.add_argument('--clang-format', '-c', help='Path to clang-format', type=str, default=None)
-        formatParser.add_argument('--astyle', '-a', help='Path to astyle', type=str, default=None)
+        formatParser.add_argument('--clang-format', '-c', help='Path to clang-format', action="store_const", const="clang-format")
+        formatParser.add_argument('--astyle', '-a', help='Path to astyle', action='store_const', const="astyle")
         formatParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
         formatParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
         formatParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)")
 
         checkParser = rootSubparsers.add_parser('check', help='Check files')
-        checkParser.add_argument('--cpplint', '-c', help='Path to cpplint', type=str, default="cpplint")
+        checkParser.add_argument('--cpplint', '-c', help='Path to cpplint', action='store_const', const="cpplint")
+        checkParser.add_argument('--pylint', '-p', help='Path to pylint', action='store_const', const="pylint")
         checkParser.add_argument('--line-length', "-l", help='Line length', type=int, default=120)
         checkParser.add_argument("targets", type=str, nargs="+", metavar="files or directories")
         checkParser.add_argument("--exceptions", "-e", type=str, nargs="*", metavar="Files or directories not beeing processed (regex is supported)", default=None)
@@ -136,39 +136,54 @@ if __name__ == "__main__":
 
         # Format option
         if args.function == "format":
+            # --clang-format and --astyle cannot be used together
+            if args.astyle != None and args.clang_format != None:
+                raise Exception("--astyle and --clang-format cannot not be used together")
+
             # Use clang-format by default if nothing is specified
-            if args.clang_format == None and args.astyle == None:
+            if args.astyle is None:
                 l = searchProgram(r"clang-format-[1-9]\.[0-9]|^clang-format$")
                 if len(l) == 0:
                     raise Exception("clang-format is not present in your PATH")
                 args.clang_format = l[0]
-                print "clang-format was not specified... using {0}...".format(args.clang_format)
+                print "Using {0}...".format(args.clang_format)
+                formatter = FileFormatter(args.clang_format,
+                                          "-i -style=\"{{BasedOnStyle: Google, ColumnLimit: {0}}}\"".format(args.line_length))
 
             # Format with astyle
-            if args.astyle != None:
+            else:
                 res = distutils.spawn.find_executable(args.astyle)
                 if res is None:
-                    raise Exception("Unable to find astyle '{0}'".format(args.astyle))
+                    raise Exception("Unable to find {0}".format(args.astyle))
                 else:
                     formatter = FileFormatter(args.astyle,
                                               "--style=google --max-code-length={0} -n".format(args.line_length))
-
-            # Format with clang-format
-            else:
-                res = distutils.spawn.find_executable(args.clang_format)
-                if res is None:
-                    raise Exception("Unable to find clang-format '{0}'".format(args.clang_format))
-                else:
-                    formatter = FileFormatter(args.clang_format,
-                                              "-i -style=\"{{BasedOnStyle: Google, ColumnLimit: {0}}}\"".format(args.line_length))
-
 
             for p in args.targets:
                 formatter.processPath(p, args.exceptions)
 
         # Check option
         elif args.function == "check":
-            checker = FileChecker(args.tool_path, args.line_length)
+
+            # --cpplint and --pylint cannot be used together
+            if args.cpplint != None and args.pylint != None:
+                raise Exception("--cpplint and --pylint cannot be used together")
+
+            # Use cpplint by default
+            if args.pylint is None:
+                res = distutils.spawn.find_executable(args.cpplint)
+                if res is None:
+                    raise Exception("Unable to find {0}".format(args.cpplint))
+                checker = FileChecker(args.cpplint,
+                                      "--linelength={0} --filter=-whitespace/indent,-build/c++11,-runtime/references".format(args.line_length))
+
+            # Check with pylint
+            else:
+                res = distutils.spawn.find_executable(args.pylint)
+                if res is None:
+                    raise Exception("Unable to find {0}".format(args.pylint))
+                checker = FileChecker(args.pylint)
+
             for p in args.targets:
                 checker.processPath(p, args.exceptions)
         else:
@@ -176,3 +191,4 @@ if __name__ == "__main__":
         sys.exit()
     except Exception as e:
         sys.exit("An error occured: {0}".format(e))
+
