@@ -19,11 +19,11 @@ import distutils.spawn
 from abc import abstractmethod
 
 
-def searchProgram(match):
+def search_program(match):
     """Searches a program in the system PATH that matches a
     provided regex
 
-    Args:
+    ARGS:
         match (str): Regex to match a program name
 
     Returns:
@@ -36,17 +36,17 @@ def searchProgram(match):
     visited = {}
 
     # For all directories in $PATH
-    for p in paths:
-        if os.path.isdir(p):
+    for path in paths:
+        if os.path.isdir(path):
             # For all files in a subdirectory
-            for f in os.listdir(p):
-                absfile = os.path.join(p, f)
+            for afile in os.listdir(path):
+                absfile = os.path.join(path, afile)
                 # Directory was not visited before
                 if not absfile in visited:
                     # File in directory is an executable file
                     if os.path.isfile(absfile) and os.access(absfile, os.X_OK):
                         # It fulfills the regex
-                        if regex.match(f) != None:
+                        if regex.match(afile) != None:
                             candidates.append(absfile)
                     # Mark the directory to visit it only once
                     visited[absfile] = True
@@ -59,51 +59,51 @@ class PathProcessor(object):
     actions while doing so
     """
 
-    def processPath(self, path, exceptions):
+    def process_path(self, path, exceptions):
         """Iterates over a path to determine whether it must
         be processed as a directory or as a file
 
-        Args:
+        ARGS:
             path (str): the path to examine
             exceptions (list): the list of paths not to process.
                 Regex are allowed.
         """
 
         if os.path.isdir(path):
-            self.processDir(os.path.abspath(path), exceptions)
+            self.process_dir(os.path.abspath(path), exceptions)
         else:
-            self.processFile(os.path.abspath(path), exceptions)
+            self.process_file(os.path.abspath(path), exceptions)
 
-    def processDir(self, path, exceptions):
+    def process_dir(self, path, exceptions):
         """Iterates over a directory
 
-        Args:
+        ARGS:
             path (str): the path to examine
             exceptions (list): the list of paths not to process.
                 Regex are allowed.
         """
-        shallBeAvoided = False
+        avoid = False
         if exceptions != None:
-            for e in exceptions:
-                shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
-        if not shallBeAvoided:
+            for ex in exceptions:
+                avoid = avoid or (re.match(ex, path) != None)
+        if not avoid:
             if os.path.isdir(path):
                 lst = os.listdir(path)
-                for p in lst:
-                    folder = os.path.join(path, p)
+                for pth in lst:
+                    folder = os.path.join(path, pth)
                     if os.path.isdir(folder):
-                        self.processDir(folder, exceptions)
+                        self.process_dir(folder, exceptions)
                     else:
-                        self.processFile(folder, exceptions)
+                        self.process_file(folder, exceptions)
             else:
                 raise RuntimeError("'{0}' is not a directory".format(p))
 
     @abstractmethod
-    def processFile(self, path, exceptions):
+    def process_file(self, path, exceptions):
         """Action to be executed when processing a file
         This method aims at being overloaded by a subclass
 
-        Args:
+        ARGS:
             path (str): the path of the file
             exceptions (list): the list of paths not to process.
                 Regex are allowed.
@@ -113,79 +113,79 @@ class PathProcessor(object):
 class FileChecker(PathProcessor):
     """Helper to lint files by linting programs
     """
-    toolPath = None
-    toolArgs = None
+    tool_path = None
+    tool_args = None
 
-    def __init__(self, toolPath, toolArgs=""):
-        self.toolPath = toolPath
-        self.toolArgs = toolArgs
+    def __init__(self, tool_path, tool_args=""):
+        self.tool_path = tool_path
+        self.tool_args = tool_args
 
-    def processFile(self, path, exceptions):
+    def process_file(self, path, exceptions):
         """Action to be done on a file by a linting program
 
-        Args:
+        ARGS:
             path (str): the path of the file
             exceptions (list): the list of paths not to process.
                 Regex are allowed.
         """
-        shallBeAvoided = False
+        avoid = False
         if exceptions != None:
-            for e in exceptions:
-                shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
-        if not shallBeAvoided:
-            command = "{0} {1} {2}".format(self.toolPath, self.toolArgs, path)
+            for ex in exceptions:
+                avoid = avoid or (re.match(ex, path) != None)
+        if not avoid:
+            command = "{0} {1} {2}".format(self.tool_path, self.tool_args, path)
             print command
-            p = subprocess.Popen(command, shell=True,
-                                 cwd=os.path.dirname(
-                                     os.path.realpath(self.toolPath)))
-            p.communicate()
-            if p.returncode != 0:
+            proc = subprocess.Popen(command, shell=True,
+                                    cwd=os.path.dirname(
+                                        os.path.realpath(self.tool_path)))
+            proc.communicate()
+            if proc.returncode != 0:
                 raise RuntimeError("Error when executing {0}".format(
-                    self.toolPath))
+                    self.tool_path))
 
 class FileFormatter(PathProcessor):
     """Helper to format files by code formatter programs
     """
-    toolPath = None
-    toolArgs = None
+    tool_path = None
+    tool_args = None
 
-    def __init__(self, toolPath, toolArgs):
-        self.toolPath = toolPath
-        self.toolArgs = toolArgs
+    def __init__(self, tool_path, tool_args):
+        self.tool_path = tool_path
+        self.tool_args = tool_args
 
-    def processFile(self, path, exceptions):
+    def process_file(self, path, exceptions):
         """Action to be done on a file by a linting program
 
-        Args:
+        ARGS:
             path (str): the path of the file
             exceptions (list): the list of paths not to process.
                 Regex are allowed.
         """
-        shallBeAvoided = False
+        avoid = False
         if exceptions != None:
-            for e in exceptions:
-                shallBeAvoided = shallBeAvoided or (re.match(e, path) != None)
-        if not shallBeAvoided:
+            for ex in exceptions:
+                avoid = avoid or (re.match(ex, path) != None)
+        if not avoid:
             if os.path.isfile(path):
-                command = "{0} {1} {2}".format(self.toolPath,
-                                               self.toolArgs, path)
+                command = "{0} {1} {2}".format(self.tool_path,
+                                               self.tool_args, path)
                 print command
-                p = subprocess.Popen(command, shell=True,
-                                     cwd=os.path.dirname(
-                                         os.path.realpath(self.toolPath)))
-                p.communicate()
-                if p.returncode != 0:
+                proc = subprocess.Popen(command, shell=True,
+                                        cwd=os.path.dirname(
+                                            os.path.realpath(self.tool_path)))
+                proc.communicate()
+                if proc.returncode != 0:
                     raise RuntimeError(
-                        "Error when executing {0}".format(self.toolPath))
+                        "Error when executing {0}".format(self.tool_path))
             else:
                 raise RuntimeError("{0} is not a file".format(path))
 
 
-def parseArgs(rawArgs):
+def parse_args(raw_args):
     """Parse command-line arguments and returns the parser
 
-    Args:
-        rawArgs (list): The list program arguments
+    ARGS:
+        raw_args (list): The list program arguments
 
     Returns:
         The parser fully set
@@ -194,106 +194,106 @@ def parseArgs(rawArgs):
     # Create main parser
     parser = argparse.ArgumentParser(prog="codebeautifer",
                                      description='Coding style helper')
-    rootSubparsers = parser.add_subparsers(dest="function")
+    root_subparser = parser.add_subparsers(dest="function")
 
     # FORMAT
-    formatParser = rootSubparsers.add_parser('format', help='Format files')
-    formatParser.add_argument('--clang-format', '-c',
-                              help='Path to clang-format',
-                              action="store_const", const="clang-format")
-    formatParser.add_argument('--astyle', '-a', help='Path to astyle',
-                              action='store_const', const="astyle")
-    formatParser.add_argument('--line-length', "-l", help='Line length',
-                              type=int, default=120)
-    formatParser.add_argument("targets", type=str, nargs="+",
-                              metavar="files or directories")
-    formatParser.add_argument("--exceptions", "-e", type=str, nargs="*",
-                              metavar="Unprocessed paths")
+    format_parser = root_subparser.add_parser('format', help='Format files')
+    format_parser.add_argument('--clang-format', '-c',
+                               help='Path to clang-format',
+                               action="store_const", const="clang-format")
+    format_parser.add_argument('--astyle', '-a', help='Path to astyle',
+                               action='store_const', const="astyle")
+    format_parser.add_argument('--line-length', "-l", help='Line length',
+                               type=int, default=120)
+    format_parser.add_argument("targets", type=str, nargs="+",
+                               metavar="files or directories")
+    format_parser.add_argument("--exceptions", "-e", type=str, nargs="*",
+                               metavar="Unprocessed paths")
 
     # CHECK
-    checkParser = rootSubparsers.add_parser('check', help='Check files')
-    checkParser.add_argument('--cpplint', '-c', help='Path to cpplint',
-                             action='store_const', const="cpplint")
-    checkParser.add_argument('--pylint', '-p', help='Path to pylint',
-                             action='store_const', const="pylint")
-    checkParser.add_argument('--line-length', "-l", help='Line length',
-                             type=int, default=120)
-    checkParser.add_argument("targets", type=str, nargs="+",
-                             metavar="files or directories")
-    checkParser.add_argument("--exceptions", "-e", type=str, nargs="*",
-                             metavar="Unprocessed paths")
+    check_parser = root_subparser.add_parser('check', help='Check files')
+    check_parser.add_argument('--cpplint', '-c', help='Path to cpplint',
+                              action='store_const', const="cpplint")
+    check_parser.add_argument('--pylint', '-p', help='Path to pylint',
+                              action='store_const', const="pylint")
+    check_parser.add_argument('--line-length', "-l", help='Line length',
+                              type=int, default=120)
+    check_parser.add_argument("targets", type=str, nargs="+",
+                              metavar="files or directories")
+    check_parser.add_argument("--exceptions", "-e", type=str, nargs="*",
+                              metavar="Unprocessed paths")
 
-    return parser.parse_args(rawArgs[1:])
+    return parser.parse_args(raw_args[1:])
 
 if __name__ == "__main__":
     try:
-        args = parseArgs(sys.argv)
+        ARGS = parse_args(sys.argv)
 
         # Format option
-        if args.function == "format":
+        if ARGS.function == "format":
             # --clang-format and --astyle cannot be used together
-            if args.astyle != None and args.clang_format != None:
+            if ARGS.astyle != None and ARGS.clang_format != None:
                 raise Exception("--astyle and --clang-format cannot not be" \
                                 " used together")
 
             # Use clang-format by default if nothing is specified
-            if args.astyle is None:
-                l = searchProgram(r"clang-format-[1-9]\.[0-9]|^clang-format$")
-                if len(l) == 0:
+            if ARGS.astyle is None:
+                L = search_program(r"clang-format-[1-9]\.[0-9]|^clang-format$")
+                if len(L) == 0:
                     raise Exception("clang-format is not present in your PATH")
-                args.clang_format = l[0]
-                print "Using {0}...".format(args.clang_format)
-                formatter = FileFormatter(args.clang_format,
+                ARGS.clang_format = L[0]
+                print "Using {0}...".format(ARGS.clang_format)
+                FORMATTER = FileFormatter(ARGS.clang_format,
                                           "-i -style=\"{{BasedOnStyle: Google" \
                                           " ColumnLimit: {0}}}\"".format(
-                                              args.line_length))
+                                              ARGS.line_length))
 
             # Format with astyle
             else:
-                res = distutils.spawn.find_executable(args.astyle)
-                if res is None:
-                    raise Exception("Unable to find {0}".format(args.astyle))
+                RES = distutils.spawn.find_executable(ARGS.astyle)
+                if RES is None:
+                    raise Exception("Unable to find {0}".format(ARGS.astyle))
                 else:
-                    formatter = FileFormatter(args.astyle,
+                    FORMATTER = FileFormatter(ARGS.astyle,
                                               "--style=google " \
                                               "--max-code-length={0} -n".format(
-                                                  args.line_length))
+                                                  ARGS.line_length))
 
-            for p in args.targets:
-                formatter.processPath(p, args.exceptions)
+            for p in ARGS.targets:
+                FORMATTER.process_path(p, ARGS.exceptions)
 
         # Check option
-        elif args.function == "check":
+        elif ARGS.function == "check":
 
             # --cpplint and --pylint cannot be used together
-            if args.cpplint != None and args.pylint != None:
+            if ARGS.cpplint != None and ARGS.pylint != None:
                 raise Exception("--cpplint and --pylint cannot " \
                                 "be used together")
 
             # Use cpplint by default
-            if args.pylint is None:
-                res = distutils.spawn.find_executable(args.cpplint)
-                if res is None:
-                    raise Exception("Unable to find {0}".format(args.cpplint))
+            if ARGS.pylint is None:
+                RES = distutils.spawn.find_executable(ARGS.cpplint)
+                if RES is None:
+                    raise Exception("Unable to find {0}".format(ARGS.cpplint))
 
-                checker = FileChecker(args.cpplint,
+                CHECKER = FileChecker(ARGS.cpplint,
                                       "--linelength={0} " \
                                       "--filter=-whitespace/indent," \
                                       "-build/c++11,-runtime/references".format(
-                                          args.line_length))
+                                          ARGS.line_length))
 
             # Check with pylint
             else:
-                res = distutils.spawn.find_executable(args.pylint)
-                if res is None:
-                    raise Exception("Unable to find {0}".format(args.pylint))
-                checker = FileChecker(args.pylint)
+                RES = distutils.spawn.find_executable(ARGS.pylint)
+                if RES is None:
+                    raise Exception("Unable to find {0}".format(ARGS.pylint))
+                CHECKER = FileChecker(ARGS.pylint)
 
-            for p in args.targets:
-                checker.processPath(p, args.exceptions)
+            for p in ARGS.targets:
+                CHECKER.process_path(p, ARGS.exceptions)
         else:
             sys.exit("An error occured: Unknown action to perform")
         sys.exit()
-    except Exception as e:
-        sys.exit("An error occured: {0}".format(e))
+    except Exception as exception:
+        sys.exit("An error occured: {0}".format(exception))
 
