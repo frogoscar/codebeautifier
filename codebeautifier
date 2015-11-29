@@ -233,14 +233,15 @@ if __name__ == "__main__":
         if ARGS.function == "format":
             # --clang-format and --astyle cannot be used together
             if ARGS.astyle != None and ARGS.clang_format != None:
-                raise Exception("--astyle and --clang-format cannot not be" \
+                raise RuntimeError("--astyle and --clang-format cannot not be" \
                                 " used together")
 
             # Use clang-format by default if nothing is specified
             if ARGS.astyle is None:
                 L = search_program(r"clang-format-[1-9]\.[0-9]|^clang-format$")
                 if len(L) == 0:
-                    raise Exception("clang-format is not present in your PATH")
+                    raise RuntimeError("clang-format is not present " \
+                                       "in your PATH")
                 ARGS.clang_format = L[0]
                 print "Using {0}...".format(ARGS.clang_format)
                 FORMATTER = FileFormatter(ARGS.clang_format,
@@ -252,7 +253,7 @@ if __name__ == "__main__":
             else:
                 RES = distutils.spawn.find_executable(ARGS.astyle)
                 if RES is None:
-                    raise Exception("Unable to find {0}".format(ARGS.astyle))
+                    raise RuntimeError("Unable to find {0}".format(ARGS.astyle))
                 else:
                     FORMATTER = FileFormatter(ARGS.astyle,
                                               "--style=google " \
@@ -267,14 +268,15 @@ if __name__ == "__main__":
 
             # --cpplint and --pylint cannot be used together
             if ARGS.cpplint != None and ARGS.pylint != None:
-                raise Exception("--cpplint and --pylint cannot " \
+                raise RuntimeError("--cpplint and --pylint cannot " \
                                 "be used together")
 
             # Use cpplint by default
             if ARGS.pylint is None:
                 RES = distutils.spawn.find_executable(ARGS.cpplint)
                 if RES is None:
-                    raise Exception("Unable to find {0}".format(ARGS.cpplint))
+                    raise RuntimeError("Unable to find {0}".format(
+                        ARGS.cpplint))
 
                 CHECKER = FileChecker(ARGS.cpplint,
                                       "--linelength={0} " \
@@ -286,7 +288,7 @@ if __name__ == "__main__":
             else:
                 RES = distutils.spawn.find_executable(ARGS.pylint)
                 if RES is None:
-                    raise Exception("Unable to find {0}".format(ARGS.pylint))
+                    raise RuntimeError("Unable to find {0}".format(ARGS.pylint))
                 CHECKER = FileChecker(ARGS.pylint)
 
             for p in ARGS.targets:
@@ -294,6 +296,6 @@ if __name__ == "__main__":
         else:
             sys.exit("An error occured: Unknown action to perform")
         sys.exit()
-    except Exception as exception:
+    except RuntimeError as exception:
         sys.exit("An error occured: {0}".format(exception))
 
