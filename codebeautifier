@@ -1,4 +1,14 @@
 #!/usr/bin/env python
+"""codebeautifier
+
+This module is a helper to enforce Ercom's coding style for
+different languages (currently C++ and python).
+
+It allows manipulation of tools that do coding style checking
+(cpplint, pylint) as well as code
+formatter (clang-format, astyle)
+
+"""
 
 import re
 import os
@@ -10,6 +20,16 @@ from abc import abstractmethod
 
 
 def searchProgram(match):
+    """Searches a program in the system PATH that matches a
+    provided regex
+
+    Args:
+        match (str): Regex to match a program name
+
+    Returns:
+        list: The list of candidates
+    """
+
     regex = re.compile(match)
     paths = os.getenv("PATH").split(":")
     candidates = []
@@ -35,13 +55,33 @@ def searchProgram(match):
 
 
 class PathProcessor(object):
+    """Allows to do path walking and execute specified
+    actions while doing so
+    """
+
     def processPath(self, path, exceptions):
+        """Iterates over a path to determine whether it must
+        be processed as a directory or as a file
+
+        Args:
+            path (str): the path to examine
+            exceptions (list): the list of paths not to process.
+                Regex are allowed.
+        """
+
         if os.path.isdir(path):
             self.processDir(os.path.abspath(path), exceptions)
         else:
             self.processFile(os.path.abspath(path), exceptions)
 
     def processDir(self, path, exceptions):
+        """Iterates over a directory
+
+        Args:
+            path (str): the path to examine
+            exceptions (list): the list of paths not to process.
+                Regex are allowed.
+        """
         shallBeAvoided = False
         if exceptions != None:
             for e in exceptions:
@@ -60,9 +100,19 @@ class PathProcessor(object):
 
     @abstractmethod
     def processFile(self, path, exceptions):
+        """Action to be executed when processing a file
+        This method aims at being overloaded by a subclass
+
+        Args:
+            path (str): the path of the file
+            exceptions (list): the list of paths not to process.
+                Regex are allowed.
+        """
         pass
 
 class FileChecker(PathProcessor):
+    """Helper to lint files by linting programs
+    """
     toolPath = None
     toolArgs = None
 
@@ -71,6 +121,13 @@ class FileChecker(PathProcessor):
         self.toolArgs = toolArgs
 
     def processFile(self, path, exceptions):
+        """Action to be done on a file by a linting program
+
+        Args:
+            path (str): the path of the file
+            exceptions (list): the list of paths not to process.
+                Regex are allowed.
+        """
         shallBeAvoided = False
         if exceptions != None:
             for e in exceptions:
@@ -78,14 +135,17 @@ class FileChecker(PathProcessor):
         if not shallBeAvoided:
             command = "{0} {1} {2}".format(self.toolPath, self.toolArgs, path)
             print command
-        p = subprocess.Popen(command, shell=True,
-                             cwd=os.path.dirname(
-                                 os.path.realpath(self.toolPath)))
-        p.communicate()
-        if p.returncode != 0:
-            raise RuntimeError("Error when executing {0}".format(self.toolPath))
+            p = subprocess.Popen(command, shell=True,
+                                 cwd=os.path.dirname(
+                                     os.path.realpath(self.toolPath)))
+            p.communicate()
+            if p.returncode != 0:
+                raise RuntimeError("Error when executing {0}".format(
+                    self.toolPath))
 
 class FileFormatter(PathProcessor):
+    """Helper to format files by code formatter programs
+    """
     toolPath = None
     toolArgs = None
 
@@ -94,6 +154,13 @@ class FileFormatter(PathProcessor):
         self.toolArgs = toolArgs
 
     def processFile(self, path, exceptions):
+        """Action to be done on a file by a linting program
+
+        Args:
+            path (str): the path of the file
+            exceptions (list): the list of paths not to process.
+                Regex are allowed.
+        """
         shallBeAvoided = False
         if exceptions != None:
             for e in exceptions:
@@ -114,8 +181,20 @@ class FileFormatter(PathProcessor):
                 raise RuntimeError("{0} is not a file".format(path))
 
 class CmdLine(object):
+    """Helper to parse command-line arguments
+    """
+
     @staticmethod
     def parseArgs(rawArgs):
+        """Parse command-line arguments and returns the parser
+
+        Args:
+            rawArgs (list): The list program arguments
+
+        Returns:
+            The parser fully set
+        """
+
         # Create main parser
         parser = argparse.ArgumentParser(prog="codebeautifer",
                                          description='Coding style helper')
