@@ -246,7 +246,7 @@ if __name__ == "__main__":
                 print "Using {0}...".format(ARGS.clang_format)
                 FORMATTER = FileFormatter(ARGS.clang_format,
                                           "-i -style=\"{{BasedOnStyle: Google" \
-                                          " ColumnLimit: {0}}}\"".format(
+                                          ", ColumnLimit: {0}}}\"".format(
                                               ARGS.line_length))
 
             # Format with astyle
