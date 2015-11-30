@@ -396,6 +396,9 @@ if __name__ == "__main__":
                                       PYTHON3_SHEBANG_REGEX)
                 checkers.append(CHECKER)
 
+            if len(checkers) is 0:
+                raise RuntimeError("No checkers have been detected")
+
             for p in ARGS.targets:
                 FileProcessor(checkers).process_path(p, ARGS.exceptions)
 
