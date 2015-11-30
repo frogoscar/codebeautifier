@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#! /usr/bin/env python2
+
 """codebeautifier
 
 This module is a helper to enforce Ercom's coding style for
@@ -141,8 +142,6 @@ class FileChecker(PathProcessor):
         self.extensions = extensions
         if shebang is not None:
             self.shebang = re.compile(shebang)
-        else:
-            self.shebang = None
 
     def process_file(self, path, exceptions):
         """Action to be done on a file by a linting program
@@ -167,7 +166,7 @@ class FileChecker(PathProcessor):
                 shebang = get_shebang(path)
                 if shebang is None:
                     return False
-                if self.shebang.search(shebang) == None:
+                if self.shebang.match(shebang) == None:
                     return False
 
             command = "{0} {1} {2}".format(self.tool_path, self.tool_args, path)
@@ -196,8 +195,6 @@ class FileFormatter(PathProcessor):
         self.extensions = extensions
         if shebang is not None:
             self.shebang = re.compile(shebang)
-        else:
-            self.shebang = None
 
     def process_file(self, path, exceptions):
         """Action to be done on a file by a linting program
@@ -287,8 +284,10 @@ def parse_args(raw_args):
     check_parser = root_subparser.add_parser('check', help='Check files')
     check_parser.add_argument('--cpplint', '-c', help='Path to cpplint',
                               type=str, default="cpplint")
-    check_parser.add_argument('--pylint', '-p', help='Path to pylint',
+    check_parser.add_argument('--pylint2', '-p2', help='Path to pylint2',
                               type=str, default="pylint")
+    check_parser.add_argument('--pylint3', '-p3', help='Path to pylint3',
+                              type=str, default="pylint3")
     check_parser.add_argument('--line-length', "-l", help='Line length',
                               type=int, default=120)
     check_parser.add_argument("targets", type=str, nargs="+",
@@ -303,7 +302,9 @@ if __name__ == "__main__":
     try:
         ARGS = parse_args(sys.argv)
         CPP_EXTENSIONS = [ ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h" ]
-        PYTHON_EXTENSIONS = [ ".py" ]
+        PYTHON_EXTENSIONS = [] # We rely on the shebang only
+        PYTHON2_SHEBANG_REGEX = r"^(\#\!).*python2.*"
+        PYTHON3_SHEBANG_REGEX = r"^(\#\!).*python3.*"
         JAVA_EXTENSIONS = [ ".java" ]
 
         # Format option
@@ -375,13 +376,24 @@ if __name__ == "__main__":
                                           ARGS.line_length))
                 checkers.append(CHECKER)
 
-            # Pylint
-            RES = distutils.spawn.find_executable(ARGS.pylint)
+            # Pylint for python 2
+            RES = distutils.spawn.find_executable(ARGS.pylint2)
             if RES is None:
-                log("pylint ({0}) not found".format(ARGS.pylint))
+                log("pylint2 ({0}) not found".format(ARGS.pylint2))
             else:
-                log("{0} found".format(ARGS.pylint))
-                CHECKER = FileChecker(ARGS.pylint, PYTHON_EXTENSIONS, r"python")
+                log("{0} found".format(ARGS.pylint2))
+                CHECKER = FileChecker(ARGS.pylint2, PYTHON_EXTENSIONS,
+                                      PYTHON2_SHEBANG_REGEX)
+                checkers.append(CHECKER)
+
+            # Pylint for python 3
+            RES = distutils.spawn.find_executable(ARGS.pylint3)
+            if RES is None:
+                log("pylint3 ({0}) not found".format(ARGS.pylint3))
+            else:
+                log("{0} found".format(ARGS.pylint3))
+                CHECKER = FileChecker(ARGS.pylint3, PYTHON_EXTENSIONS,
+                                      PYTHON3_SHEBANG_REGEX)
                 checkers.append(CHECKER)
 
             for p in ARGS.targets:
