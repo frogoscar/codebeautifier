@@ -77,10 +77,13 @@ def get_shebang(filename):
     Returns:
         The shebang. None if it could not be retrieved.
     """
-    with open(filename, 'r') as fhdl:
-        line = fhdl.readline()
-        if len(line) > 2 and line[0] == '#' and line[1] == '!':
-            return line
+    try:
+        with open(filename, 'r') as fhdl:
+            line = fhdl.readline()
+            if len(line) > 2 and line[0] == '#' and line[1] == '!':
+                return line
+    except UnicodeDecodeError as exception:
+        log("Fail to read from \"" + filename + "\"")
     return None
 
 
@@ -278,6 +281,7 @@ class FileProcessor(PathProcessor):
         for proc in self.processors:
             if proc.process_file(path, exceptions):
                 return True
+        log("Fail to process \"" + path + "\"")
         return False
 
 
@@ -414,7 +418,8 @@ if __name__ == "__main__":
             else:
                 log("{0} found".format(ARGS.pylint2))
                 CHECKER = FileChecker(ARGS.pylint2, PYTHON_EXTENSIONS,
-                                      PYTHON2_SHEBANG_REGEX)
+                                      PYTHON2_SHEBANG_REGEX,
+                                      "--reports=no")
                 CHECKERS.append(CHECKER)
 
             # Pylint for python 3
@@ -424,7 +429,8 @@ if __name__ == "__main__":
             else:
                 log("{0} found".format(ARGS.pylint3))
                 CHECKER = FileChecker(ARGS.pylint3, PYTHON_EXTENSIONS,
-                                      PYTHON3_SHEBANG_REGEX)
+                                      PYTHON3_SHEBANG_REGEX,
+                                      "--reports=no")
                 CHECKERS.append(CHECKER)
 
             if len(CHECKERS) is 0:
