@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 
 """codebeautifier
 
@@ -60,12 +60,25 @@ def get_extension(filename):
     return os.path.splitext(filename)[1]
 
 def log(msg):
-    print "-- " + msg
+    """Decorates prints on standard output
+
+    Args:
+        msg: The message to be printed on stdout
+    """
+    print("-- " + msg)
 
 def get_shebang(filename):
-    shebang = None
-    with open(filename, 'r') as fh:
-        line = fh.readline()
+    """Gets the shebang of a script.
+    It must be formatted as specified in IEEE POSIX.1-2008
+
+    Args:
+        filename (str): The file to examine
+
+    Returns:
+        The shebang. None if it could not be retrieved.
+    """
+    with open(filename, 'r') as fhdl:
+        line = fhdl.readline()
         if len(line) > 2 and line[0] == '#' and line[1] == '!':
             return line
     return None
@@ -239,12 +252,29 @@ class FileFormatter(PathProcessor):
         return True
 
 class FileProcessor(PathProcessor):
+    """Helper around FileChecker and FileFormatter.
+    This class takes as input n formatters/checkers and try them
+    all on a file until one suits its input
+    """
+
     processors = None
 
     def __init__(self, processors):
         self.processors = processors
 
     def process_file(self, path, exceptions):
+        """Iterates through the processors passed to the object.
+        It tries the first one. If the processor refuses to process
+        the file, the next one is used
+
+        Args:
+            path (str): The input file to process
+            exceptions (regex): Path not to be processed
+
+        Returns:
+            True if the file has been processed.
+            False otherwise.
+        """
         for proc in self.processors:
             if proc.process_file(path, exceptions):
                 return True
@@ -301,33 +331,34 @@ def parse_args(raw_args):
 if __name__ == "__main__":
     try:
         ARGS = parse_args(sys.argv)
-        CPP_EXTENSIONS = [ ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h" ]
+        CPP_EXTENSIONS = [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h"]
         PYTHON_EXTENSIONS = [] # We rely on the shebang only
         PYTHON2_SHEBANG_REGEX = r"^(\#\!).*python2.*"
         PYTHON3_SHEBANG_REGEX = r"^(\#\!).*python3.*"
-        JAVA_EXTENSIONS = [ ".java" ]
+        JAVA_EXTENSIONS = [".java"]
 
         # Format option
         if ARGS.function == "format":
-            formatters = []
+            FORMATTERS = []
 
             # Clang-format
-            clang_found = False
+            CLANG_FOUND = False
             if ARGS.clang_format is None:
                 L = search_program(r"clang-format-[1-9]\.[0-9]|^clang-format$")
                 if len(L) == 0:
                     log("clang-format not found")
                 else:
                     ARGS.clang_format = L[0]
-                    clang_found = True
+                    CLANG_FOUND = True
             else:
                 RES = distutils.spawn.find_executable(ARGS.clang_format)
                 if RES is None:
-                    log("clang-format ({0}) not found".format(ARGS.clang_format))
+                    log("clang-format ({0}) not found".format(
+                        ARGS.clang_format))
                 else:
-                    clang_found = True
+                    CLANG_FOUND = True
 
-            if clang_found:
+            if CLANG_FOUND:
                 log("{0} found".format(ARGS.clang_format))
                 FORMATTER = FileFormatter(ARGS.clang_format,
                                           CPP_EXTENSIONS,
@@ -335,7 +366,7 @@ if __name__ == "__main__":
                                           "-i -style=\"{{BasedOnStyle: Google"\
                                           ", ColumnLimit: {0}}}\"".format(
                                               ARGS.line_length))
-                formatters.append(FORMATTER)
+                FORMATTERS.append(FORMATTER)
 
             # Format with astyle
             RES = distutils.spawn.find_executable(ARGS.astyle)
@@ -349,17 +380,17 @@ if __name__ == "__main__":
                                           "--style=google " \
                                           "--max-code-length={0} -n".format(
                                               ARGS.line_length))
-                formatters.append(FORMATTER)
+                FORMATTERS.append(FORMATTER)
 
-            if len(formatters) is 0:
-                raise RuntimeError("No formatters have been detected")
+            if len(FORMATTERS) is 0:
+                raise RuntimeError("No FORMATTERS have been detected")
 
             for p in ARGS.targets:
-                FileProcessor(formatters).process_path(p, ARGS.exceptions)
+                FileProcessor(FORMATTERS).process_path(p, ARGS.exceptions)
 
         # Check option
         elif ARGS.function == "check":
-            checkers = []
+            CHECKERS = []
 
             # Cpplint
             RES = distutils.spawn.find_executable(ARGS.cpplint)
@@ -374,7 +405,7 @@ if __name__ == "__main__":
                                       "--filter=-whitespace/indent," \
                                       "-build/c++11,-runtime/references".format(
                                           ARGS.line_length))
-                checkers.append(CHECKER)
+                CHECKERS.append(CHECKER)
 
             # Pylint for python 2
             RES = distutils.spawn.find_executable(ARGS.pylint2)
@@ -384,7 +415,7 @@ if __name__ == "__main__":
                 log("{0} found".format(ARGS.pylint2))
                 CHECKER = FileChecker(ARGS.pylint2, PYTHON_EXTENSIONS,
                                       PYTHON2_SHEBANG_REGEX)
-                checkers.append(CHECKER)
+                CHECKERS.append(CHECKER)
 
             # Pylint for python 3
             RES = distutils.spawn.find_executable(ARGS.pylint3)
@@ -394,13 +425,13 @@ if __name__ == "__main__":
                 log("{0} found".format(ARGS.pylint3))
                 CHECKER = FileChecker(ARGS.pylint3, PYTHON_EXTENSIONS,
                                       PYTHON3_SHEBANG_REGEX)
-                checkers.append(CHECKER)
+                CHECKERS.append(CHECKER)
 
-            if len(checkers) is 0:
+            if len(CHECKERS) is 0:
                 raise RuntimeError("No checkers have been detected")
 
             for p in ARGS.targets:
-                FileProcessor(checkers).process_path(p, ARGS.exceptions)
+                FileProcessor(CHECKERS).process_path(p, ARGS.exceptions)
 
         else:
             sys.exit("An error occured: Unknown action to perform")
