@@ -1,5 +1,19 @@
 #! /usr/bin/env python3
 
+"""Codebeautifier
+
+Helper to use linters and formatters.
+Currently supported:
+ - Python:
+   - pylint
+   - pylint3
+   - autopep8
+ - C++:
+   - astyle
+   - clang-format
+   - cpplint
+"""
+
 import re
 import os
 import sys
@@ -9,14 +23,15 @@ import distutils.spawn
 import logging
 from colorlog import ColoredFormatter
 from abc import abstractmethod
-from enum import Enum
-
-LOGGER = None
-
+from enum import IntEnum, unique
 
 
 def logger_init(level):
-    global LOGGER
+    """Initializes the logger
+
+    Args:
+        level: The log level of the logger to be initialized
+    """
 
     formatter = ColoredFormatter(
         "%(log_color)s%(levelname)s%(reset)s %(message)s",
@@ -31,9 +46,9 @@ def logger_init(level):
         })
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    LOGGER = logging.getLogger("codebeautifier")
-    LOGGER.addHandler(handler)
-    LOGGER.setLevel(level)
+    Main.logger = logging.getLogger("codebeautifier")
+    Main.logger.addHandler(handler)
+    Main.logger.setLevel(level)
 
 
 def search_program(match):
@@ -92,46 +107,51 @@ def get_shebang(filename):
             line = fhdl.readline()
             if len(line) > 2 and line[0] == '#' and line[1] == '!':
                 return line
-    except UnicodeDecodeError as exception:
-        LOGGER.error("Fail to read from \"" + filename + "\"")
+    except UnicodeDecodeError:
+        Main.logger.error("Fail to read from \"" + filename + "\"")
     return None
 
 
-def process_file(filename, metatable):
-    file_processed = None
+def process_file(filename, command_table, strict, ignores):
+    """Execute commands on a file
 
-    # Avoid exceptions
-    if ARGS.ignored_paths is not None:
+    Args:
+        filename (str): Name of the file to be processed
+        commands_table (dict): list of command for languages
+        strict (bool): if True, aborts on error
+    """
+    try:
+
         avoid = False
-        for ignored in ARGS.ignored_paths:
+        for ignored in ignores:
             if re.match(ignored, filename) is not None:
                 avoid = True
                 break
         if avoid is True:
             return
 
-    try:
-        for lang, tools in metatable.items():
+        file_processed = None
+        for _, tools in command_table.items():
             checker = tools[0]
-            RET = checker.check(filename)
-            if LangChecker.Status.ok in RET:
+            ret = checker.check(filename)
+            if LangChecker.Status.no_error in ret:
                 file_processed = checker.lang()
                 tools[1].execute(filename)
                 break
         if file_processed is not None:
-            LOGGER.debug("processed " + filename + " as " +
-                         file_processed)
+            Main.logger.debug("processed " + filename + " as " +
+                              file_processed)
         else:
-            LOGGER.error("Could not process \"{0}\" because of " \
+            Main.logger.error("Could not process \"{0}\" because of " \
                          "the following errors".format(filename))
-            for err in RET:
-                LOGGER.error("     > {0}".format(err))
-            if ARGS.strict is True:
+            for err in ret:
+                Main.logger.error("     > " +str(err))
+            if strict is True:
                 sys.exit(2)
 
     except RuntimeError as exception:
-        LOGGER.critical("{0}".format(exception))
-        if ARGS.strict is True:
+        Main.logger.critical("{0}".format(exception))
+        if strict is True:
             sys.exit(3)
 
 
@@ -189,6 +209,11 @@ def parse_args(raw_args):
 
 
 class Command(object):
+    """Wrapper to execute a command-line tool.
+
+    Commands to be used must respect the convention:
+        <tool> [options] <target>
+    """
     base_command = None
 
     def __init__(self, program, arguments=None):
@@ -198,8 +223,13 @@ class Command(object):
             self.base_command = program + " " + arguments
 
     def execute(self, target):
+        """Launches the command on a specified target
+
+        Args:
+            target (str): target of the command
+        """
         command = self.base_command + " " + os.path.realpath(target)
-        LOGGER.info(command)
+        Main.logger.info(command)
         proc = subprocess.Popen(command, shell=True)
         proc.communicate()
 
@@ -207,14 +237,23 @@ class Command(object):
             raise RuntimeError(
                 "{0} returned {1}".format(command, proc.returncode))
 
+    def get_base(self):
+        """Returns the base of the command"""
+        return self.base_command
+
+
 class LangChecker(object):
+    """Infrastructure to determine the programming language used in a file
+    """
 
     file_extensions = None
     file_shebang_regex = None
     file_checker = None
 
-    class Status(Enum):
-        ok = 0
+    @unique
+    class Status(IntEnum):
+        """Error codes used when checking the language of a file"""
+        no_error = 0
         no_extension = 1
         no_shebang = 2
         invalid_extension = 3
@@ -226,6 +265,14 @@ class LangChecker(object):
         self.file_shebang_regex = file_shebang_regex
 
     def check(self, filename):
+        """Apply a language check on the provided filename
+
+        Args:
+            filename (str): The filename to be checked
+
+        Returns:
+            A list of errors
+        """
         if not os.path.isfile(filename):
             raise IOError("{0} is not a file".format(filename))
         return self.file_checker(filename,
@@ -234,19 +281,37 @@ class LangChecker(object):
 
     @staticmethod
     def check_extension(filename, extensions):
+        """Checks the extension of a file among possible extensions
+
+        Args:
+            filename (str): The filename to be checked
+            extensions (list): List of supported extensions
+
+        Returns:
+            Status (ok, no extension, unsupported)
+        """
         assert filename is not None
         assert extensions is not None
 
-        EXT = get_extension(filename)
-        if EXT is None:
+        ext = get_extension(filename)
+        if ext is None:
             return LangChecker.Status.no_extension
-        elif EXT in extensions:
-            return LangChecker.Status.ok
+        elif ext in extensions:
+            return LangChecker.Status.no_error
         else:
             return LangChecker.Status.invalid_extension
 
     @staticmethod
     def check_shebang(filename, shebang_regex):
+        """Checks the shebang of a file among possible shebangs
+
+        Args:
+            filename (str): The filename to be checked
+            shebang (regex): Allowed shebangs
+
+        Returns:
+            Status (ok, no shebang, invalid)
+        """
         assert filename is not None
         assert shebang_regex is not None
 
@@ -256,192 +321,271 @@ class LangChecker(object):
         else:
             regex = re.compile(shebang_regex)
             if regex.match(shebang):
-                return LangChecker.Status.ok
+                return LangChecker.Status.no_error
             else:
                 return LangChecker.Status.invalid_shebang
 
     @abstractmethod
     def lang(self):
+        """Get the name of the language checked
+        Returns:
+            The name of the language checked
+        """
         pass
 
 
 class CppChecker(LangChecker):
+    """Checker for C++"""
 
     EXTENSIONS = [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h"]
 
     @staticmethod
-    def check_cpp(filename, extensions, shebang_regex=None):
-        RET = LangChecker.check_extension(filename, extensions)
-        return [RET]
+    def check_cpp(filename, extensions, _):
+        """Checks that the file is a c++ file
+
+        Args:
+            filename (str): the file to be checked
+            extensions (list): the extensions supported
+            shebang_regex (regex): the possible shebangs
+
+        Returns:
+            A list of errors
+        """
+        ret = LangChecker.check_extension(filename, extensions)
+        return [ret]
 
     def __init__(self,
-                 extensions=EXTENSIONS,
+                 extensions=None,
                  checker=check_cpp.__func__):
+        if extensions is None:
+            extensions = CppChecker.EXTENSIONS
         super().__init__(checker, extensions)
 
     def lang(self):
+        """Get the name of the language checked
+        Returns:
+            The name of the language checked
+        """
         return 'cpp'
 
 
 class PythonChecker(LangChecker):
+    """Checker for Python"""
 
     EXTENSIONS = [".py"]
 
     @staticmethod
     def check_python(filename, extensions, shebang_regex):
-        RET_EXT = LangChecker.check_extension(filename, extensions)
-        if RET_EXT is not LangChecker.Status.ok:
-            RET_SBG = LangChecker.check_shebang(filename, shebang_regex)
-            if RET_SBG is not LangChecker.Status.ok:
-                return [RET_EXT, RET_SBG]
+        """Checks that the file is a pyton file
 
-        return [LangChecker.Status.ok]
+        Args:
+            filename (str): the file to be checked
+            extensions (list): the extensions supported
+            shebang_regex (regex): the possible shebangs
+
+        Returns:
+            A list of errors
+        """
+
+        ret_ext = LangChecker.check_extension(filename, extensions)
+        if ret_ext is not LangChecker.Status.no_error:
+            ret_sbg = LangChecker.check_shebang(filename, shebang_regex)
+            if ret_sbg is not LangChecker.Status.no_error:
+                return [ret_ext, ret_sbg]
+
+        return [LangChecker.Status.no_error]
 
     def __init__(self,
                  shebang_regex,
-                 extensions=EXTENSIONS,
+                 extensions=None,
                  checker=check_python.__func__):
+        if extensions is None:
+            extensions = PythonChecker.EXTENSIONS
         super().__init__(checker, extensions, shebang_regex)
 
+    def lang(self):
+        """Get the name of the language checked
+        Returns:
+            The name of the language checked
+        """
+        return 'python'
+
 class Python2Checker(PythonChecker):
+    """Checker for Python 2"""
     def __init__(self):
         super().__init__(r"^(\#\!)(\s*)/usr/bin/env(\s*)python2.*$")
 
     def lang(self):
+        """Get the name of the language checked
+        Returns:
+            The name of the language checked
+        """
         return 'python2'
 
 class Python3Checker(PythonChecker):
+    """Checker for Python 3"""
     def __init__(self):
         super().__init__(r"^(\#\!)(\s*)/usr/bin/env(\s*)python3.*$")
 
     def lang(self):
+        """Get the name of the language checked
+        Returns:
+            The name of the language checked
+        """
         return 'python3'
 
 
+class Main(object):
+    """Main utilities"""
 
-if __name__ == "__main__":
-    try:
-        ARGS = parse_args(sys.argv)
-        logger_init(ARGS.verbose)
+    logger = None
+    args = None
+    commands_table = None
 
-        class Lang(Enum):
-            CPP     = 0
-            PYTHON2 = 1
-            PYTHON3 = 2
+    class Lang(IntEnum):
+        """Aliases for languages"""
+        CPP = 0
+        PYTHON2 = 1
+        PYTHON3 = 2
 
-        METATABLE = {
-            Lang.CPP:     [CppChecker()],
-            Lang.PYTHON2: [Python2Checker()],
-            Lang.PYTHON3: [Python3Checker()]
+    def add_command(self, command, args, *langs):
+        """Registers a command in the commands table
+
+        Args:
+            command (str): name of the binary to be run
+            args (str): options to forward to the command
+            *langs: languages supported by the command
+        """
+
+        # Format with astyle
+        res = distutils.spawn.find_executable(command)
+        if res is None:
+            Main.logger.warning(
+                "{0} not found".format(command))
+        else:
+            Main.logger.debug("{0} found".format(command))
+            cmd = Command(command, args)
+            for lang in langs:
+                self.commands_table[lang].append(cmd)
+
+
+    def __init__(self, args):
+        self.args = parse_args(args)
+        logger_init(self.args.verbose)
+
+        self.commands_table = {
+            Main.Lang.CPP:     [CppChecker()],
+            Main.Lang.PYTHON2: [Python2Checker()],
+            Main.Lang.PYTHON3: [Python3Checker()]
         }
 
-        def add_command(command, lang):
-            METATABLE[lang].append(command)
+    def init(self):
+        """Main entry point"""
+        try:
 
-        # Format option
-        if ARGS.function == "format":
+            # Format option
+            if self.args.function == "format":
 
-            # Clang-format
-            CLANG_FOUND = False
-            if ARGS.clang_format is None:
-                L = search_program(r"clang-format-[1-9]\.[0-9]|^clang-format$")
-                if len(L) == 0:
-                    LOGGER.warning("clang-format not found")
-                else:
-                    ARGS.clang_format = L[0]
-                    CLANG_FOUND = True
+                # Clang-format
+                ignore_clang = False
+                if self.args.clang_format is None:
+                    candidates = search_program(
+                        r"clang-format-[1-9]\.[0-9]|^clang-format$")
+                    if len(candidates) == 0:
+                        Main.logger.warning("clang-format not found")
+                        ignore_clang = True
+                    else:
+                        self.args.clang_format = candidates[0]
+
+                if ignore_clang is False:
+                    self.add_command(
+                        self.args.clang_format,
+                        "-i -style=\"{{BasedOnStyle: Google, " \
+                        "ColumnLimit: {0}}}".format(self.args.line_length),
+                        Main.Lang.CPP
+                    )
+
+                # Format with astyle
+                self.add_command(
+                    self.args.astyle,
+                    "--style=google --max-code-length={0} -n".format(
+                        self.args.line_length),
+                    Main.Lang.CPP
+                )
+
+                # Format with autopep8
+                self.add_command(
+                    self.args.autopep8,
+                    "--in-place --aggressive",
+                    Main.Lang.PYTHON2,
+                    Main.Lang.PYTHON3
+                )
+
+            # Check option
+            elif self.args.function == "check":
+
+                # Cpplint
+                self.add_command(
+                    self.args.cpplint,
+                    "--linelength={0} "
+                    "--filter=-whitespace/indent,"
+                    "-build/c++11,-runtime/references".format(
+                        self.args.line_length),
+                    Main.Lang.CPP
+                )
+
+                # Pylint for python 2
+                self.add_command(
+                    self.args.pylint2,
+                    "--reports=no",
+                    Main.Lang.PYTHON2
+                )
+
+                # Pylint for python 3
+                self.add_command(
+                    self.args.pylint3,
+                    "--reports=no",
+                    Main.Lang.PYTHON3
+                )
+
+            for lang, tools in self.commands_table.items():
+                if len(tools) < 2:
+                    raise RuntimeError(
+                        "No utilities have been detected for " \
+                        "language " + str(lang))
+        except RuntimeError as exception:
+            sys.exit("An error occured: {0}".format(exception))
+
+        return self
+
+
+    def main(self):
+        """Processing core
+        """
+        ignores = []
+        if self.args.ignored_paths:
+            for ign in self.args.ignored_paths:
+                regex = re.compile(ign)
+                ignores.append(regex)
+
+        #===
+        # Processing
+        #===
+        for target in self.args.targets:
+
+            # Avoid exceptions
+            if os.path.isdir(target):
+                for root, _, files in os.walk(target):
+                    for afile in files:
+                        process_file(
+                            root + '/' + afile,
+                            self.commands_table, self.args.strict, ignores
+                        )
             else:
-                RES = distutils.spawn.find_executable(ARGS.clang_format)
-                if RES is None:
-                    LOGGER.warning("clang-format ({0}) not found".format(
-                        ARGS.clang_format))
-                else:
-                    CLANG_FOUND = True
+                process_file(
+                    target, self.commands_table, self.args.strict, ignores
+                )
 
-            if CLANG_FOUND:
-                LOGGER.debug("{0} found".format(ARGS.clang_format))
-                CMD = Command(ARGS.clang_format,
-                              "-i -style=\"{{BasedOnStyle: Google, " \
-                              "ColumnLimit: {0}}}\"".format(ARGS.line_length))
-                add_command(CMD, Lang.CPP)
+if __name__ == "__main__":
+    Main(sys.argv).init().main()
 
-
-            # Format with astyle
-            RES = distutils.spawn.find_executable(ARGS.astyle)
-            if RES is None:
-                LOGGER.warning("astyle ({0}) not found".format(ARGS.astyle))
-            else:
-                LOGGER.debug("{0} found".format(ARGS.astyle))
-                CMD = Command(ARGS.astyle,
-                              "--style=google --max-code-length={0} -n".format(
-                                              ARGS.line_length))
-                add_command(CMD, Lang.CPP)
-
-            # Format with autopep8
-            RES = distutils.spawn.find_executable(ARGS.autopep8)
-            if RES is None:
-                LOGGER.warning(
-                    "autopep8 ({0}) not found".format(
-                        ARGS.autopep8))
-            else:
-                LOGGER.debug("{0} found".format(ARGS.autopep8))
-                CMD = Command(ARGS.autopep8, "--in-place --aggressive")
-                add_command(CMD, Lang.PYTHON2)
-                add_command(CMD, Lang.PYTHON3)
-
-        # Check option
-        elif ARGS.function == "check":
-
-            # Cpplint
-            RES = distutils.spawn.find_executable(ARGS.cpplint)
-            if RES is None:
-                LOGGER.warning("cpplint ({0}) not found".format(ARGS.cpplint))
-            else:
-                LOGGER.debug("{0} found".format(ARGS.cpplint))
-                CMD = Command(ARGS.cpplint,
-                              "--linelength={0} "
-                              "--filter=-whitespace/indent,"
-                              "-build/c++11,-runtime/references".format(
-                                  ARGS.line_length))
-                add_command(CMD, Lang.CPP)
-
-            # Pylint for python 2
-            RES = distutils.spawn.find_executable(ARGS.pylint2)
-            if RES is None:
-                LOGGER.warning("pylint2 ({0}) not found".format(ARGS.pylint2))
-            else:
-                LOGGER.debug("{0} found".format(ARGS.pylint2))
-                CMD = Command(ARGS.pylint2, "--reports=no")
-                add_command(CMD, Lang.PYTHON2)
-
-            # Pylint for python 3
-            RES = distutils.spawn.find_executable(ARGS.pylint3)
-            if RES is None:
-                LOGGER.warning("pylint3 ({0}) not found".format(ARGS.pylint3))
-            else:
-                LOGGER.debug("{0} found".format(ARGS.pylint3))
-                CMD = Command(ARGS.pylint3, "--reports=no")
-                add_command(CMD, Lang.PYTHON3)
-
-        for lang, tools in METATABLE.items():
-            if len(tools) < 2:
-                raise RuntimeError(
-                    "No utilities have been detected for lang {0}".format(lang))
-    except RuntimeError as exception:
-        sys.exit("An error occured: {0}".format(exception))
-
-
-    #===
-    # Processing
-    #===
-    for p in ARGS.targets:
-        if os.path.isdir(p):
-            for root, sdir, files in os.walk(p):
-                for f in files:
-                    process_file(root + '/' + f, METATABLE)
-        else:
-            process_file(p, METATABLE)
-
-
-    sys.exit(0)
- 
