@@ -438,6 +438,40 @@ class Python3Checker(PythonChecker):
         """
         return 'python3'
 
+class JavaChecker(LangChecker):
+    """Checker for Java"""
+
+    EXTENSIONS = [".java"]
+
+    @staticmethod
+    def check_java(filename, extensions, _):
+        """Checks that the file is a java file
+
+        Args:
+            filename (str): the file to be checked
+            extensions (list): the extensions supported
+            shebang_regex (regex): the possible shebangs
+
+        Returns:
+            A list of errors
+        """
+        ret = LangChecker.check_extension(filename, extensions)
+        return [ret]
+
+    def __init__(self,
+                 extensions=None,
+                 checker=check_java.__func__):
+        if extensions is None:
+            extensions = JavaChecker.EXTENSIONS
+        super().__init__(checker, extensions)
+
+    def lang(self):
+        """Get the name of the language checked
+        Returns:
+            The name of the language checked
+        """
+        return 'java'
+
 
 class Main(object):
     """Main utilities"""
@@ -451,6 +485,7 @@ class Main(object):
         CPP = 0
         PYTHON2 = 1
         PYTHON3 = 2
+        JAVA = 3
 
     def add_command(self, command, args, *langs):
         """Registers a command in the commands table
@@ -488,7 +523,8 @@ class Main(object):
         self.commands_table = {
             Main.Lang.CPP:     [CppChecker()],
             Main.Lang.PYTHON2: [Python2Checker()],
-            Main.Lang.PYTHON3: [Python3Checker()]
+            Main.Lang.PYTHON3: [Python3Checker()],
+            Main.Lang.JAVA:    [JavaChecker()]
         }
 
     def init(self):
@@ -527,7 +563,8 @@ class Main(object):
                         "--max-code-length={0} -n".format(
                             self.args.line_length)
                     ],
-                    Main.Lang.CPP
+                    Main.Lang.CPP,
+                    Main.Lang.JAVA
                 )
 
                 # Format with autopep8
