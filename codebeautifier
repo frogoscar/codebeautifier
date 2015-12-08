@@ -191,6 +191,8 @@ def parse_args(raw_args):
 
     # CHECK
     check_parser = root_subparser.add_parser('check', help='Check files')
+    check_parser.add_argument('--line-length', "-l", help='Line length',
+                              type=int, default=80)
     check_parser.add_argument('--cpplint', '-c', help='Path to cpplint',
                               type=str, default="cpplint")
     check_parser.add_argument('--pylint2', '-p2', help='Path to pylint2',
@@ -513,7 +515,7 @@ class Main(object):
                         self.args.clang_format, [
                             "-i",
                             "-style=\"{{BasedOnStyle: Google, " \
-                            "ColumnLimit: {0}}}".format(self.args.line_length)
+                            "ColumnLimit: {0}}}\"".format(self.args.line_length)
                         ],
                         Main.Lang.CPP
                     )
