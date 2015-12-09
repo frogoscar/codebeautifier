@@ -199,6 +199,9 @@ def parse_args(raw_args):
                               type=str, default="pylint")
     check_parser.add_argument('--pylint3', '-p3', help='Path to pylint3',
                               type=str, default="pylint3")
+    check_parser.add_argument('--checkstyle', '-C', type=str,
+                              help='Checkstyle main class or JAR',
+                              default='com.puppycrawl.tools.checkstyle.Main')
     check_parser.add_argument("targets", type=str, nargs="+",
                               metavar="files or directories")
     check_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
@@ -604,6 +607,18 @@ class Main(object):
                         "--reports=no"
                     ],
                     Main.Lang.PYTHON3
+                )
+
+                # Checkstyle for Java
+                checkstyle_args = []
+                if get_extension(self.args.checkstyle) == '.jar':
+                    checkstyle_args.append('-jar')
+                checkstyle_args.append(self.args.checkstyle)
+                checkstyle_args.append('-c')
+                checkstyle_args.append('/google_checks.xml')
+                self.add_command(
+                    "java", checkstyle_args,
+                    Main.Lang.JAVA
                 )
 
             # Invalid options
