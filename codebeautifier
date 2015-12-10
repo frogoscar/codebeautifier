@@ -241,6 +241,7 @@ class Command(object):
         proc.communicate()
 
         if proc.returncode != 0:
+            Main.status = -1
             raise RuntimeError("Offending file: \"{0}\"".format(target))
 
     def get_base_command(self):
@@ -481,6 +482,7 @@ class Main(object):
     logger = None
     args = None
     commands_table = None
+    status = 0
 
     class Lang(IntEnum):
         """Aliases for languages"""
@@ -661,6 +663,7 @@ class Main(object):
                 process_file(
                     target, self.commands_table, self.args.strict, ignores
                 )
+        sys.exit(Main.status)
 
 if __name__ == "__main__":
     Main(sys.argv).init().main()
