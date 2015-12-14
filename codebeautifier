@@ -37,6 +37,7 @@ from enum import IntEnum, unique
 
 
 
+
 class Tool(object):
     """Wrapper to execute a program-line tool.
 
@@ -54,14 +55,61 @@ class Tool(object):
         CHECKSTYLE = 6
         AUTOPEP8 = 7
 
+    # pylint: disable=too-few-public-methods
+    class Filter(object):
+        """
+        Parses the outputs and result of a command to determine
+        the failure of its execution
+        """
+        # pylint: disable=no-self-use
+        def filter_command(self, retcode, dummy_stdout, dummy_stderr):
+            """Basic filtering function
 
-    def __init__(self, identifier, program, common_arguments=None, quiet=False):
+            Args:
+                retcode (int): The exit status of the program
+                stdout (str): What was printed in stdout
+                stderr (str): What was printed in stderr
+
+            Returns: True if the command has succeeded, False otherwise
+            """
+            return retcode is 0
+
+    # pylint: disable=too-few-public-methods
+    class CheckstyleFilter(Filter):
+        """
+        Parses the outputs and result of checkstyle to determine
+        the failure of its execution
+        """
+        def filter_command(self, retcode, stdout, stderr):
+            """
+            Parses the output of checkstyle to determine
+            the failure of its execution
+
+            Args:
+                retcode (int): The exit status of checkstyle
+                stdout (str): What was printed in stdout
+                stderr (str): What was printed in stderr
+            """
+            if super().filter_command(retcode, stdout, stderr):
+                if stdout.find(': warning: ') is -1:
+                    return True
+            return False
+
+
+    # pylint: disable=too-many-arguments
+    def __init__(self, identifier, program,
+                 common_arguments=None, quiet=False,
+                 command_filter=None):
         self.program = program
         self.quiet = quiet
         self.identifier = identifier
         if common_arguments is None:
             common_arguments = []
+        if command_filter is None:
+            command_filter = Tool.Filter()
+
         self.common_arguments = common_arguments
+        self.command_filter = command_filter
 
     def execute(self, target, arguments=None):
         """Launches the program on a specified target
@@ -74,14 +122,17 @@ class Tool(object):
         command = [self.program] + self.common_arguments + \
             arguments + [os.path.realpath(target)]
         CodeBeautifier.logger.info(command)
-        if self.quiet is True:
-            pipes = subprocess.PIPE
-        else:
-            pipes = None
-        proc = subprocess.Popen(command, stdout=pipes, stderr=pipes)
-        proc.communicate()
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+        out = out.decode('UTF-8')
+        err = err.decode('UTF-8')
 
-        if proc.returncode != 0:
+        if self.quiet is False:
+            print("STDOUT:\n", out)
+            print("STDERR:\n", err)
+        if self.command_filter.filter_command(
+                proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
             raise RuntimeError("Offending file: \"{0}\"".format(target))
 
@@ -390,7 +441,6 @@ class CodeBeautifier(object):
         CodeBeautifier.logger.addHandler(handler)
         CodeBeautifier.logger.setLevel(level)
 
-
     @staticmethod
     def search_program(match):
         """Searches a program in the system PATH that matches a
@@ -562,7 +612,8 @@ class CodeBeautifier(object):
         self.processors = []
         self.parsed_args = None
 
-    def add_tool(self, identifier, command, arguments, quiet):
+    # pylint: disable=too-many-arguments
+    def add_tool(self, identifier, command, arguments, quiet, filter_cmd=None):
         """Registers a program in the commands table
 
         Args:
@@ -578,7 +629,8 @@ class CodeBeautifier(object):
                 "{0} not found".format(command))
         else:
             self.logger.debug("{0} found".format(command))
-            self.tools.append(Tool(identifier, res, arguments, quiet))
+            self.tools.append(
+                Tool(identifier, res, arguments, quiet, filter_cmd))
 
     def initialize_processors(self):
         """
@@ -627,7 +679,8 @@ class CodeBeautifier(object):
             checkstyle_args.append('-c')
             checkstyle_args.append('/google_checks.xml')
             self.add_tool(Tool.ToolId.CHECKSTYLE,
-                          "java", checkstyle_args, self.parsed_args.quiet)
+                          "java", checkstyle_args, self.parsed_args.quiet,
+                          Tool.CheckstyleFilter())
 
         except RuntimeError as exception:
             sys.exit("An error occured: {0}".format(exception))
