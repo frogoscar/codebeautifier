@@ -536,12 +536,16 @@ class CodeBeautifier(object):
                                             " as " +
                                             file_processed)
             else:
-                CodeBeautifier.logger.critical(
-                    "Fail to process \"{0}\"".format(filename))
-                for err in shall_process:
-                    CodeBeautifier.logger.error("     > " + str(err))
                 if strict is True:
+                    CodeBeautifier.logger.critical(
+                        "Fail to process \"{0}\"".format(filename))
+                    for err in shall_process:
+                        CodeBeautifier.logger.error("     > " + str(err))
                     sys.exit(2)
+                else:
+                    CodeBeautifier.logger.warning(
+                        "Fail to process \"{0}\" ({1})".format(
+                            filename, shall_process))
 
         except RuntimeError as exception:
             CodeBeautifier.logger.critical("{0}".format(exception))
