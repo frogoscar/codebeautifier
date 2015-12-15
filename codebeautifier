@@ -129,8 +129,10 @@ class Tool(object):
         err = err.decode('UTF-8')
 
         if self.quiet is False:
-            print("STDOUT:\n", out)
-            print("STDERR:\n", err)
+            if out:
+                print("STDOUT:\n", out)
+            if err:
+                print("STDERR:\n", err)
         if self.command_filter.filter_command(
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
@@ -156,11 +158,15 @@ class FileProcessor(object):
         invalid_extension = 3
         invalid_shebang = 4
         invalid_file = 5
+        unhandled_mimetype = 6
 
     def __init__(self, file_shebang_regex=None):
         self.formatter = None
         self.checker = None
         self.file_shebang_regex = file_shebang_regex
+        self.file_program = distutils.spawn.find_executable('file')
+        if self.file_program is None:
+            CodeBeautifier.logger.warning("file binary was not found")
 
     def shall_process(self, filename):
         """Apply a language shall_process on the provided filename
@@ -259,9 +265,42 @@ class FileProcessor(object):
                 "No checker available for {0}".format(
                     self.get_processed_language))
 
+    def check_mime_type(self, filename):
+        """Check if the filename mime type's is supported
+
+        Args:
+            filename (str): file to be analysed
+
+        Returns: True if the mime type is supported.
+                 False otherwise.
+        """
+        ret = []
+        if self.file_program is not None:
+            proc = subprocess.Popen([self.file_program,
+                                     '--mime-type',
+                                     '--brief',
+                                     filename],
+                                    stdout=subprocess.PIPE)
+            out = proc.communicate()[0].decode('UTF-8').rstrip()
+            if proc.returncode is 0:
+                if not out in self.get_mime_types():
+                    ret = [FileProcessor.Status.unhandled_mimetype]
+        return ret
+
+    def can_check_mime_type(self):
+        """Returns if the FileProcessor is able to check for mime types
+        """
+        return self.file_program is not None
+
     @abstractmethod
     def get_extensions(self):
         """Returns: the extensions supported by a language
+        """
+        pass
+
+    @abstractmethod
+    def get_mime_types(self):
+        """Returns: mime types handled
         """
         pass
 
@@ -271,6 +310,9 @@ class CppFileProcessor(FileProcessor):
 
     def get_extensions(self):
         return [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h"]
+
+    def get_mime_types(self):
+        return ["text/x-c++"]
 
     def __init__(self, tools=None):
         super().__init__()
@@ -310,6 +352,9 @@ class Python2FileProcessor(FileProcessor):
     def get_extensions(self):
         return [".py"]
 
+    def get_mime_types(self):
+        return ["text/x-python"]
+
     def __init__(self, tools):
         super().__init__()
         for tool in tools:
@@ -332,13 +377,14 @@ class Python2FileProcessor(FileProcessor):
         return 'python2'
 
     def shall_process(self, filename):
+        ret = []
         ret_ext = FileProcessor.check_extension(
             filename, self.get_extensions())
         if len(ret_ext) != 0:
             ret_sbg = FileProcessor.check_shebang(filename, self.shebang_regex)
             if len(ret_sbg) != 0:
-                return ret_ext + ret_sbg
-        return []
+                ret = ret_ext + ret_sbg
+        return ret
 
 
 class Python3FileProcessor(FileProcessor):
@@ -346,6 +392,9 @@ class Python3FileProcessor(FileProcessor):
 
     def get_extensions(self):
         return [".py"]
+
+    def get_mime_types(self):
+        return ["text/x-python"]
 
     def __init__(self, tools):
         super().__init__()
@@ -369,13 +418,14 @@ class Python3FileProcessor(FileProcessor):
         return 'python3'
 
     def shall_process(self, filename):
+        ret = []
         ret_ext = FileProcessor.check_extension(
             filename, self.get_extensions())
         if len(ret_ext) != 0:
             ret_sbg = FileProcessor.check_shebang(filename, self.shebang_regex)
             if len(ret_sbg) != 0:
-                return ret_ext + ret_sbg
-        return []
+                ret = ret_ext + ret_sbg
+        return ret
 
 
 class JavaFileProcessor(FileProcessor):
@@ -383,6 +433,9 @@ class JavaFileProcessor(FileProcessor):
 
     def get_extensions(self):
         return [".java"]
+
+    def get_mime_types(self):
+        return ["text/x-java-source,java"]
 
     def __init__(self, tools=None):
         super().__init__()
@@ -506,6 +559,7 @@ class CodeBeautifier(object):
                 "Fail to read from \"" + filename + "\"")
         return None
 
+    # pylint: disable=too-many-branches
     @staticmethod
     def process_file(filename, processors, strict, ignores, func):
         """Execute commands on a file
@@ -525,27 +579,39 @@ class CodeBeautifier(object):
                 return
 
             file_processed = None
+            mimetype_handled = False
+            all_errors = []
             for processor in processors:
-                shall_process = processor.shall_process(filename)
-                if len(shall_process) == 0:
+                errors = processor.shall_process(filename)
+                if len(errors) == 0:
                     func(processor, filename)
                     file_processed = processor.get_processed_language()
                     break
+                # Union of the errors
+                all_errors = list(set(errors) | set(all_errors))
+
+                # Determine whether mime type was handled or not
+                mimetype_err = processor.check_mime_type(filename)
+                if not FileProcessor.Status.unhandled_mimetype in mimetype_err:
+                    mimetype_handled = True
+
             if file_processed is not None:
                 CodeBeautifier.logger.debug("processed " + filename +
                                             " as " +
                                             file_processed)
             else:
+                if not mimetype_handled:
+                    all_errors.append(FileProcessor.Status.unhandled_mimetype)
                 if strict is True:
                     CodeBeautifier.logger.critical(
                         "Fail to process \"{0}\"".format(filename))
-                    for err in shall_process:
+                    for err in all_errors:
                         CodeBeautifier.logger.error("     > " + str(err))
                     sys.exit(2)
                 else:
                     CodeBeautifier.logger.warning(
                         "Fail to process \"{0}\" ({1})".format(
-                            filename, shall_process))
+                            filename, all_errors))
 
         except RuntimeError as exception:
             CodeBeautifier.logger.critical("{0}".format(exception))
