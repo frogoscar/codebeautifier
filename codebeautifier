@@ -695,7 +695,7 @@ class CodeBeautifier(object):
         # Format with astyle
         res = distutils.spawn.find_executable(command)
         if res is None:
-            self.logger.warning(
+            self.logger.info(
                 "{0} not found".format(command))
         else:
             self.logger.debug("{0} found".format(command))
@@ -766,7 +766,7 @@ class CodeBeautifier(object):
                 candidates = CodeBeautifier.search_program(
                     r"clang-format-[1-9]\.[0-9]|^clang-format$")
                 if len(candidates) == 0:
-                    CodeBeautifier.logger.warning("clang-format not found")
+                    CodeBeautifier.logger.info("clang-format not found")
                     ignore_clang = True
                 else:
                     self.parsed_args.clang_format = candidates[0]
