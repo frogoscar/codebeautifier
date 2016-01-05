@@ -160,6 +160,34 @@ class FileProcessor(object):
         invalid_file = 5
         unhandled_mimetype = 6
 
+        def __str__(self):
+            err = {
+                FileProcessor.Status.no_extension:       'No Extension',
+                FileProcessor.Status.no_shebang:         'No Shebang',
+                FileProcessor.Status.invalid_extension:  'Invalid Extension',
+                FileProcessor.Status.invalid_shebang:    'Invalid Shebang',
+                FileProcessor.Status.invalid_file:       'Invalid File',
+                FileProcessor.Status.unhandled_mimetype: 'Unhandled Mime Type'
+            }
+            return "{0}".format(err[self.value])
+
+        @staticmethod
+        def list_to_string(status_list):
+            """Generates a message from a list of status for debugging purposes
+
+            Args:
+                status_list (list): A list of status
+
+            Returns: A human-readable message
+            """
+            msg = ''
+            for index, status in enumerate(status_list):
+                msg += str(status)
+                if index is not len(status_list) - 1:
+                    msg += ', '
+            return msg
+
+
     def __init__(self, file_shebang_regex=None):
         self.formatter = None
         self.checker = None
@@ -603,18 +631,23 @@ class CodeBeautifier(object):
                 if not mimetype_handled:
                     all_errors.append(FileProcessor.Status.unhandled_mimetype)
                 if strict is True:
-                    CodeBeautifier.logger.critical(
-                        "Fail to process \"{0}\"".format(filename))
-                    for err in all_errors:
-                        CodeBeautifier.logger.error("     > " + str(err))
+                    CodeBeautifier.logger.error(
+                        "Fail to process \"{0}\": {1}".format(
+                            filename,
+                            FileProcessor.Status.list_to_string(all_errors)
+                        )
+                    )
                     sys.exit(2)
                 else:
                     CodeBeautifier.logger.warning(
-                        "Fail to process \"{0}\" ({1})".format(
-                            filename, all_errors))
+                        "\"{0}\" was not processed: {1}".format(
+                            filename,
+                            FileProcessor.Status.list_to_string(all_errors)
+                        )
+                    )
 
         except RuntimeError as exception:
-            CodeBeautifier.logger.critical("{0}".format(exception))
+            CodeBeautifier.logger.error("{0}".format(exception))
             if strict is True:
                 sys.exit(3)
 
@@ -815,7 +848,7 @@ class CodeBeautifier(object):
         if self.parsed_args.verbose is True:
             log_level = logging.DEBUG
         elif self.parsed_args.quiet is True:
-            log_level = logging.CRITICAL
+            log_level = logging.WARNING
         CodeBeautifier.logger_init(log_level)
 
         if self.parsed_args.function == "check":
