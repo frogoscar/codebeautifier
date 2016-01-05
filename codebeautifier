@@ -119,8 +119,7 @@ class Tool(object):
         """
         if arguments is None:
             arguments = []
-        command = [self.program] + self.common_arguments + \
-            arguments + [os.path.realpath(target)]
+        command = [self.program] + self.common_arguments +  arguments + [target]
         CodeBeautifier.logger.info(command)
         proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
