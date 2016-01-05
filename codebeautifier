@@ -851,9 +851,12 @@ class CodeBeautifier(object):
             log_level = logging.WARNING
         CodeBeautifier.logger_init(log_level)
 
+        if self.parsed_args.function is None:
+            raise AttributeError("Missing positional argument")
+
         if self.parsed_args.function == "check":
             self.initialize_checkers()
-        if self.parsed_args.function == "format":
+        elif self.parsed_args.function == "format":
             self.initialize_formatters()
 
         self.initialize_processors()
@@ -866,7 +869,14 @@ class CodeBeautifier(object):
             args: command-line arguments to be parsed
         """
 
-        self.initialize(args)
+        try:
+            self.initialize(args)
+        except RuntimeError as exception:
+            print("*** ERROR: {0}".format(exception))
+            return 2
+        except AttributeError as exception:
+            print("*** ERROR: {0}".format(exception))
+            return 2
 
         ignores = []
         if self.parsed_args.ignored_paths:
@@ -897,7 +907,7 @@ class CodeBeautifier(object):
                     target, self.processors, self.parsed_args.strict,
                     ignores, func_to_execute
                 )
-        sys.exit(CodeBeautifier.status)
+        return CodeBeautifier.status
 
 if __name__ == "__main__":
-    CodeBeautifier().main(sys.argv)
+    sys.exit(CodeBeautifier().main(sys.argv))
