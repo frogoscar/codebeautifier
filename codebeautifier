@@ -478,7 +478,7 @@ class CodeBeautifier(object):
         """
 
         formatter = ColoredFormatter(
-            "%(log_color)s%(levelname)s%(reset)s %(message)s",
+            "%(log_color)s[%(levelname)-8s]%(reset)s %(message)s",
             datefmt=None,
             reset=True,
             log_colors={
