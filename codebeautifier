@@ -135,7 +135,10 @@ class Tool(object):
         if self.command_filter.filter_command(
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
-            raise RuntimeError("Offending file: \"{0}\"".format(target))
+            raise RuntimeError(
+                "\"{0}\" does not respect coding rules. Please run "
+                "\"codebeautifier format {0}\" to correct the issues"
+                .format(target))
 
     def get_id(self):
         """Gets the identifier of the processing tool
@@ -289,8 +292,9 @@ class FileProcessor(object):
             self.checker.execute(filepath)
         else:
             raise RuntimeError(
-                "No checker available for {0}".format(
-                    self.get_processed_language))
+                "{0} cannot be processed (No checker available for {1})"
+                .format(filepath,
+                        self.get_processed_language()))
 
     def check_mime_type(self, filename):
         """Check if the filename mime type's is supported
@@ -631,7 +635,7 @@ class CodeBeautifier(object):
                     all_errors.append(FileProcessor.Status.unhandled_mimetype)
                 if strict is True:
                     CodeBeautifier.logger.error(
-                        "Fail to process \"{0}\": {1}".format(
+                        "Fail to process \"{0}\" ({1})".format(
                             filename,
                             FileProcessor.Status.list_to_string(all_errors)
                         )
@@ -639,7 +643,7 @@ class CodeBeautifier(object):
                     sys.exit(2)
                 else:
                     CodeBeautifier.logger.warning(
-                        "\"{0}\" was not processed: {1}".format(
+                        "\"{0}\" was not processed ({1})".format(
                             filename,
                             FileProcessor.Status.list_to_string(all_errors)
                         )
@@ -893,7 +897,9 @@ class CodeBeautifier(object):
             func_to_execute = lambda x, y: x.check_file(y)
         for target in self.parsed_args.targets:
             if not os.path.exists(target):
-                CodeBeautifier.logger.error("Cannot process path \"{0}\" because it does not exist".format(target))
+                CodeBeautifier.logger.error(
+                    "Cannot process path \"{0}\" because it "
+                    "does not exist".format(target))
                 if self.parsed_args.strict is True:
                     CodeBeautifier.status = -1
                     break
