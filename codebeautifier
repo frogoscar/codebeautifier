@@ -142,8 +142,7 @@ def process_file(filename, command_table, strict, ignores):
             Main.logger.debug("processed " + filename + " as " +
                               file_processed)
         else:
-            Main.logger.error("Could not process \"{0}\" because of " \
-                         "the following errors".format(filename))
+            Main.logger.critical("Fail to process \"{0}\"".format(filename))
             for err in ret:
                 Main.logger.error("     > " +str(err))
             if strict is True:
@@ -167,9 +166,10 @@ def parse_args(raw_args):
 
     # Create main parser
     parser = argparse.ArgumentParser(prog="codebeautifer",
-                                     description='Coding style helper')
-    parser.add_argument('--verbose', '-v', type=int, default=40,
-                        metavar="Standard python log level")
+                                     description='Coding style helper',
+                                     prefix_chars='+-')
+    parser.add_argument('--verbose', '-v', action='store_true')
+    parser.add_argument('--quiet', '+v', action='store_true')
     root_subparser = parser.add_subparsers(dest="function")
 
     # FORMAT
@@ -214,13 +214,14 @@ class Command(object):
     Commands to be used must respect the convention:
         <tool> [options] <target>
     """
-    base_command = None
+    command = None
+    quiet = False
 
-    def __init__(self, program, arguments=None):
-        if arguments is None:
-            self.base_command = program
-        else:
-            self.base_command = program + " " + arguments
+    def __init__(self, program, arguments=None, quiet=False):
+        self.command = [program]
+        if arguments is not None:
+            self.command = self.command + arguments
+        self.quiet = quiet
 
     def execute(self, target):
         """Launches the command on a specified target
@@ -228,18 +229,21 @@ class Command(object):
         Args:
             target (str): target of the command
         """
-        command = self.base_command + " " + os.path.realpath(target)
+        command = self.command + [os.path.realpath(target)]
         Main.logger.info(command)
-        proc = subprocess.Popen(command, shell=True)
+        if self.quiet is True:
+            pipes = subprocess.PIPE
+        else:
+            pipes = None
+        proc = subprocess.Popen(command, stdout=pipes, stderr=pipes)
         proc.communicate()
 
         if proc.returncode != 0:
-            raise RuntimeError(
-                "{0} returned {1}".format(command, proc.returncode))
+            raise RuntimeError("Offending file: \"{0}\"".format(target))
 
-    def get_base(self):
-        """Returns the base of the command"""
-        return self.base_command
+    def get_base_command(self):
+        """Returns the base command to be executed"""
+        return self.command
 
 
 class LangChecker(object):
@@ -464,14 +468,22 @@ class Main(object):
                 "{0} not found".format(command))
         else:
             Main.logger.debug("{0} found".format(command))
-            cmd = Command(command, args)
+            cmd = Command(res, args, self.args.quiet)
             for lang in langs:
                 self.commands_table[lang].append(cmd)
 
 
     def __init__(self, args):
         self.args = parse_args(args)
-        logger_init(self.args.verbose)
+        if self.args.verbose is True and self.args.quiet is True:
+            raise RuntimeError("--verbose and --quiet cannot be used together")
+
+        log_level = logging.INFO
+        if self.args.verbose is True:
+            log_level = logging.DEBUG
+        elif self.args.quiet is True:
+            log_level = logging.CRITICAL
+        logger_init(log_level)
 
         self.commands_table = {
             Main.Lang.CPP:     [CppChecker()],
@@ -482,6 +494,7 @@ class Main(object):
     def init(self):
         """Main entry point"""
         try:
+
 
             # Format option
             if self.args.function == "format":
@@ -499,24 +512,30 @@ class Main(object):
 
                 if ignore_clang is False:
                     self.add_command(
-                        self.args.clang_format,
-                        "-i -style=\"{{BasedOnStyle: Google, " \
-                        "ColumnLimit: {0}}}".format(self.args.line_length),
+                        self.args.clang_format, [
+                            "-i",
+                            "-style=\"{{BasedOnStyle: Google, " \
+                            "ColumnLimit: {0}}}".format(self.args.line_length)
+                        ],
                         Main.Lang.CPP
                     )
 
                 # Format with astyle
                 self.add_command(
-                    self.args.astyle,
-                    "--style=google --max-code-length={0} -n".format(
-                        self.args.line_length),
+                    self.args.astyle, [
+                        "--style=google",
+                        "--max-code-length={0} -n".format(
+                            self.args.line_length)
+                    ],
                     Main.Lang.CPP
                 )
 
                 # Format with autopep8
                 self.add_command(
-                    self.args.autopep8,
-                    "--in-place --aggressive",
+                    self.args.autopep8, [
+                        "--in-place",
+                        "--aggressive"
+                    ],
                     Main.Lang.PYTHON2,
                     Main.Lang.PYTHON3
                 )
@@ -526,27 +545,33 @@ class Main(object):
 
                 # Cpplint
                 self.add_command(
-                    self.args.cpplint,
-                    "--linelength={0} "
-                    "--filter=-whitespace/indent,"
-                    "-build/c++11,-runtime/references".format(
-                        self.args.line_length),
+                    self.args.cpplint, [
+                        "--linelength={0}".format(self.args.line_length),
+                        "--filter=-whitespace/indent," \
+                        "-build/c++11,-runtime/references"
+                    ],
                     Main.Lang.CPP
                 )
 
                 # Pylint for python 2
                 self.add_command(
-                    self.args.pylint2,
-                    "--reports=no",
+                    self.args.pylint2, [
+                        "--reports=no"
+                    ],
                     Main.Lang.PYTHON2
                 )
 
                 # Pylint for python 3
                 self.add_command(
-                    self.args.pylint3,
-                    "--reports=no",
+                    self.args.pylint3, [
+                        "--reports=no"
+                    ],
                     Main.Lang.PYTHON3
                 )
+
+            # Invalid options
+            else:
+                raise RuntimeError("Invalid usage. Relaunch with --help")
 
             for lang, tools in self.commands_table.items():
                 if len(tools) < 2:
