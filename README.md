@@ -18,15 +18,15 @@ Definitions:
 
 The table below shows the tools used by Codebeautifier.
 
-| Tool              | Language        | Type           | How to Install (Ubuntu)             |
-| ----------------- | --------------- | -------------- | ----------------------------------- |
-| [cpplint][1]      | C++             | Checker        | [cpplint.py][8]                     |
-| [astyle][2]       | C++/Java        | Formatter      | Ubuntu package (`astyle`)           |
-| [clang-format][3] | C++             | Formatter      | Ubuntu package (`clang-format-xxx`) |
-| [pylint][4]       | Python2         | Checker/Linter | Ubuntu package (`pylint`)           |
-| [pylint3][5]      | Python3         | Checker/Linter | Ubuntu package (`pylint3`)          |
-| [autopep8][6]     | Python2/Python3 | Formatter      | Ubuntu package (`python-autopep8`)  |
-| [checkstyle][7]   | Java            | Checker/Linter | See [9]. v6.2 minimum is required   |
+| Tool              | Language        | Type           | How to Install (Ubuntu)                 |
+| ----------------- | --------------- | -------------- | --------------------------------------- |
+| [cpplint][1]      | C++             | Checker        | [cpplint.py][8]                         |
+| [astyle][2]       | C++/Java        | Formatter      | Ubuntu package (`astyle`)               |
+| [clang-format][3] | C++             | Formatter      | Ubuntu package (`clang-format-xxx`)     |
+| [pylint][4]       | Python2         | Checker/Linter | Ubuntu package (`pylint`)               |
+| [pylint3][5]      | Python3         | Checker/Linter | Ubuntu package (`pylint3`)              |
+| [autopep8][6]     | Python2/Python3 | Formatter      | Ubuntu package (`python-autopep8`)      |
+| [checkstyle][7]   | Java            | Checker/Linter | See [HERE][9]. v6.2 minimum is required |
 
 
 General Usage
