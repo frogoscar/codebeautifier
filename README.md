@@ -123,4 +123,5 @@ Codebeautifier is Copyright (c) 2015 - 2016 Ercom
 [6]: https://pypi.python.org/pypi/autopep8/
 [7]: http://checkstyle.sourceforge.net/
 [8]: https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py
+[9]: http://checkstyle.sourceforge.net/#Download
 
