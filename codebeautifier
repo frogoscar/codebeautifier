@@ -1,23 +1,39 @@
 #! /usr/bin/env python3
 
-"""codebeautifier
-
-This module is a helper to enforce Ercom's coding style for
-different languages (currently C++ and python).
-
-It allows manipulation of tools that do coding style checking
-(cpplint, pylint) as well as code
-formatter (clang-format, astyle)
-
-"""
-
 import re
 import os
 import sys
 import argparse
 import subprocess
 import distutils.spawn
+import logging
+from colorlog import ColoredFormatter
 from abc import abstractmethod
+from enum import Enum
+
+LOGGER = None
+
+
+
+def logger_init(level):
+    global LOGGER
+
+    formatter = ColoredFormatter(
+        "%(log_color)s%(levelname)s%(reset)s %(message)s",
+        datefmt=None,
+        reset=True,
+        log_colors={
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'bold_red'
+        })
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    LOGGER = logging.getLogger("codebeautifier")
+    LOGGER.addHandler(handler)
+    LOGGER.setLevel(level)
 
 
 def search_program(match):
@@ -54,18 +70,12 @@ def search_program(match):
 
     return candidates
 
+
 def get_extension(filename):
     """Returns the extension of a file
     """
     return os.path.splitext(filename)[1]
 
-def log(msg):
-    """Decorates prints on standard output
-
-    Args:
-        msg: The message to be printed on stdout
-    """
-    print("-- " + msg)
 
 def get_shebang(filename):
     """Gets the shebang of a script.
@@ -83,206 +93,46 @@ def get_shebang(filename):
             if len(line) > 2 and line[0] == '#' and line[1] == '!':
                 return line
     except UnicodeDecodeError as exception:
-        log("Fail to read from \"" + filename + "\"")
+        LOGGER.error("Fail to read from \"" + filename + "\"")
     return None
 
 
-class PathProcessor(object):
-    """Allows to do path walking and execute specified
-    actions while doing so
-    """
+def process_file(filename, metatable):
+    file_processed = None
 
-    def process_path(self, path, exceptions):
-        """Iterates over a path to determine whether it must
-        be processed as a directory or as a file
+    # Avoid exceptions
+    if ARGS.ignored_paths is not None:
+        avoid = False
+        for ignored in ARGS.ignored_paths:
+            if re.match(ignored, filename) is not None:
+                avoid = True
+                break
+        if avoid is True:
+            return
 
-        Args:
-            path (str): the path to examine
-            exceptions (list): the list of paths not to process.
-                Regex are allowed.
-        """
-
-        if os.path.isdir(path):
-            self.process_dir(os.path.abspath(path), exceptions)
+    try:
+        for lang, tools in metatable.items():
+            checker = tools[0]
+            RET = checker.check(filename)
+            if LangChecker.Status.ok in RET:
+                file_processed = checker.lang()
+                tools[1].execute(filename)
+                break
+        if file_processed is not None:
+            LOGGER.debug("processed " + filename + " as " +
+                         file_processed)
         else:
-            self.process_file(os.path.abspath(path), exceptions)
+            LOGGER.error("Could not process \"{0}\" because of " \
+                         "the following errors".format(filename))
+            for err in RET:
+                LOGGER.error("     > {0}".format(err))
+            if ARGS.strict is True:
+                sys.exit(2)
 
-    def process_dir(self, path, exceptions):
-        """Iterates over a directory
-
-        Args:
-            path (str): the path to examine
-            exceptions (list): the list of paths not to process.
-                Regex are allowed.
-        """
-        avoid = False
-        if exceptions != None:
-            for ex in exceptions:
-                avoid = avoid or (re.match(ex, path) != None)
-        if not avoid:
-            if os.path.isdir(path):
-                lst = os.listdir(path)
-                for pth in lst:
-                    folder = os.path.join(path, pth)
-                    if os.path.isdir(folder):
-                        self.process_dir(folder, exceptions)
-                    else:
-                        self.process_file(folder, exceptions)
-            else:
-                raise RuntimeError("'{0}' is not a directory".format(p))
-
-    @abstractmethod
-    def process_file(self, path, exceptions):
-        """Action to be executed when processing a file
-        This method aims at being overloaded by a subclass
-
-        Args:
-            path (str): the path of the file
-            exceptions (list): the list of paths not to process.
-                Regex are allowed.
-        """
-        pass
-
-
-class FileChecker(PathProcessor):
-    """Helper to lint files by linting programs
-    """
-    tool_path = None
-    tool_args = None
-    extensions = None
-    shebang = None
-
-    def __init__(self, tool_path, extensions, shebang=None, tool_args=""):
-        self.tool_path = tool_path
-        self.tool_args = tool_args
-        self.extensions = extensions
-        if shebang is not None:
-            self.shebang = re.compile(shebang)
-
-    def process_file(self, path, exceptions):
-        """Action to be done on a file by a linting program
-
-        Args:
-            path (str): the path of the file
-            exceptions (list): the list of paths not to process.
-                Regex are allowed.
-        """
-        avoid = False
-        if exceptions != None:
-            for ex in exceptions:
-                avoid = avoid or (re.match(ex, path) != None)
-        if not avoid:
-            if not os.path.isfile(path):
-                raise RuntimeError("{0} is not a file".format(path))
-
-            # Extension/shebang not handled by checker?
-            if not get_extension(path) in self.extensions:
-                if self.shebang is None:
-                    return False
-                shebang = get_shebang(path)
-                if shebang is None:
-                    return False
-                if self.shebang.match(shebang) == None:
-                    return False
-
-            command = "{0} {1} {2}".format(self.tool_path, self.tool_args, path)
-            log(command)
-            proc = subprocess.Popen(command, shell=True,
-                                    cwd=os.path.dirname(
-                                        os.path.realpath(self.tool_path)))
-            proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError("Error when executing {0}".format(
-                    self.tool_path))
-
-        return True
-
-class FileFormatter(PathProcessor):
-    """Helper to format files by code formatter programs
-    """
-    tool_path = None
-    tool_args = None
-    extensions = None
-    shebang = None
-
-    def __init__(self, tool_path, extensions, shebang=None, tool_args=""):
-        self.tool_path = tool_path
-        self.tool_args = tool_args
-        self.extensions = extensions
-        if shebang is not None:
-            self.shebang = re.compile(shebang)
-
-    def process_file(self, path, exceptions):
-        """Action to be done on a file by a linting program
-
-        Args:
-            path (str): the path of the file
-            exceptions (list): the list of paths not to process.
-                Regex are allowed.
-
-        Returns:
-            True if the file was successfully processed.
-            False if the file could not be processed.
-            Raises an exception on error
-        """
-        avoid = False
-        if exceptions != None:
-            for ex in exceptions:
-                avoid = avoid or (re.match(ex, path) != None)
-        if not avoid:
-            if not os.path.isfile(path):
-                raise RuntimeError("{0} is not a file".format(path))
-
-            # Extension/shebang not handled by checker?
-            if not get_extension(path) in self.extensions:
-                if self.shebang is None:
-                    return False
-                shebang = get_shebang(path)
-                if not self.shebang.match(shebang):
-                    return False
-
-            command = "{0} {1} {2}".format(self.tool_path,
-                                           self.tool_args, path)
-            log(command)
-            proc = subprocess.Popen(command, shell=True,
-                                    cwd=os.path.dirname(
-                                        os.path.realpath(self.tool_path)))
-            proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(
-                    "Error when executing {0}".format(self.tool_path))
-
-        return True
-
-class FileProcessor(PathProcessor):
-    """Helper around FileChecker and FileFormatter.
-    This class takes as input n formatters/checkers and try them
-    all on a file until one suits its input
-    """
-
-    processors = None
-
-    def __init__(self, processors):
-        self.processors = processors
-
-    def process_file(self, path, exceptions):
-        """Iterates through the processors passed to the object.
-        It tries the first one. If the processor refuses to process
-        the file, the next one is used
-
-        Args:
-            path (str): The input file to process
-            exceptions (regex): Path not to be processed
-
-        Returns:
-            True if the file has been processed.
-            False otherwise.
-        """
-        for proc in self.processors:
-            if proc.process_file(path, exceptions):
-                return True
-        log("Fail to process \"" + path + "\"")
-        return False
+    except RuntimeError as exception:
+        LOGGER.critical("{0}".format(exception))
+        if ARGS.strict is True:
+            sys.exit(3)
 
 
 def parse_args(raw_args):
@@ -298,6 +148,8 @@ def parse_args(raw_args):
     # Create main parser
     parser = argparse.ArgumentParser(prog="codebeautifer",
                                      description='Coding style helper')
+    parser.add_argument('--verbose', '-v', type=int, default=40,
+                        metavar="Standard python log level")
     root_subparser = parser.add_subparsers(dest="function")
 
     # FORMAT
@@ -313,8 +165,9 @@ def parse_args(raw_args):
                                type=int, default=120)
     format_parser.add_argument("targets", type=str, nargs="+",
                                metavar="files or directories")
-    format_parser.add_argument("--exceptions", "-e", type=str, nargs="*",
+    format_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
                                metavar="Unprocessed paths")
+    format_parser.add_argument("--strict", "-S", action='store_true')
 
     # CHECK
     check_parser = root_subparser.add_parser('check', help='Check files')
@@ -328,138 +181,267 @@ def parse_args(raw_args):
                               type=int, default=120)
     check_parser.add_argument("targets", type=str, nargs="+",
                               metavar="files or directories")
-    check_parser.add_argument("--exceptions", "-e", type=str, nargs="*",
+    check_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
                               metavar="Unprocessed paths")
+    check_parser.add_argument("--strict", "-S", action='store_true')
 
     return parser.parse_args(raw_args[1:])
+
+
+class Command(object):
+    base_command = None
+
+    def __init__(self, program, arguments=None):
+        if arguments is None:
+            self.base_command = program
+        else:
+            self.base_command = program + " " + arguments
+
+    def execute(self, target):
+        command = self.base_command + " " + os.path.realpath(target)
+        LOGGER.info(command)
+        proc = subprocess.Popen(command, shell=True)
+        proc.communicate()
+
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "{0} returned {1}".format(command, proc.returncode))
+
+class LangChecker(object):
+
+    file_extensions = None
+    file_shebang_regex = None
+    file_checker = None
+
+    class Status(Enum):
+        ok = 0
+        no_extension = 1
+        no_shebang = 2
+        invalid_extension = 3
+        invalid_shebang = 4
+
+    def __init__(self, file_checker, file_extensions, file_shebang_regex=None):
+        self.file_checker = file_checker
+        self.file_extensions = file_extensions
+        self.file_shebang_regex = file_shebang_regex
+
+    def check(self, filename):
+        if not os.path.isfile(filename):
+            raise IOError("{0} is not a file".format(filename))
+        return self.file_checker(filename,
+                                 self.file_extensions,
+                                 self.file_shebang_regex)
+
+    @staticmethod
+    def check_extension(filename, extensions):
+        assert filename is not None
+        assert extensions is not None
+
+        EXT = get_extension(filename)
+        if EXT is None:
+            return LangChecker.Status.no_extension
+        elif EXT in extensions:
+            return LangChecker.Status.ok
+        else:
+            return LangChecker.Status.invalid_extension
+
+    @staticmethod
+    def check_shebang(filename, shebang_regex):
+        assert filename is not None
+        assert shebang_regex is not None
+
+        shebang = get_shebang(filename)
+        if shebang is None:
+            return LangChecker.Status.no_shebang
+        else:
+            regex = re.compile(shebang_regex)
+            if regex.match(shebang):
+                return LangChecker.Status.ok
+            else:
+                return LangChecker.Status.invalid_shebang
+
+    @abstractmethod
+    def lang(self):
+        pass
+
+
+class CppChecker(LangChecker):
+
+    EXTENSIONS = [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h"]
+
+    @staticmethod
+    def check_cpp(filename, extensions, shebang_regex=None):
+        RET = LangChecker.check_extension(filename, extensions)
+        return [RET]
+
+    def __init__(self,
+                 extensions=EXTENSIONS,
+                 checker=check_cpp.__func__):
+        super().__init__(checker, extensions)
+
+    def lang(self):
+        return 'cpp'
+
+
+class PythonChecker(LangChecker):
+
+    EXTENSIONS = [".py"]
+
+    @staticmethod
+    def check_python(filename, extensions, shebang_regex):
+        RET_EXT = LangChecker.check_extension(filename, extensions)
+        if RET_EXT is not LangChecker.Status.ok:
+            RET_SBG = LangChecker.check_shebang(filename, shebang_regex)
+            if RET_SBG is not LangChecker.Status.ok:
+                return [RET_EXT, RET_SBG]
+
+        return [LangChecker.Status.ok]
+
+    def __init__(self,
+                 shebang_regex,
+                 extensions=EXTENSIONS,
+                 checker=check_python.__func__):
+        super().__init__(checker, extensions, shebang_regex)
+
+class Python2Checker(PythonChecker):
+    def __init__(self):
+        super().__init__(r"^(\#\!)(\s*)/usr/bin/env(\s*)python2.*$")
+
+    def lang(self):
+        return 'python2'
+
+class Python3Checker(PythonChecker):
+    def __init__(self):
+        super().__init__(r"^(\#\!)(\s*)/usr/bin/env(\s*)python3.*$")
+
+    def lang(self):
+        return 'python3'
+
 
 
 if __name__ == "__main__":
     try:
         ARGS = parse_args(sys.argv)
-        CPP_EXTENSIONS = [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx", ".h"]
-        PYTHON_EXTENSIONS = [] # We rely on the shebang only
-        PYTHON2_SHEBANG_REGEX = r"^(\#\!).*python2.*"
-        PYTHON3_SHEBANG_REGEX = r"^(\#\!).*python3.*"
-        PYTHON_SHEBANGS_REGEX = PYTHON2_SHEBANG_REGEX + r"|" + \
-                                PYTHON3_SHEBANG_REGEX
-        JAVA_EXTENSIONS = [".java"]
+        logger_init(ARGS.verbose)
+
+        class Lang(Enum):
+            CPP     = 0
+            PYTHON2 = 1
+            PYTHON3 = 2
+
+        METATABLE = {
+            Lang.CPP:     [CppChecker()],
+            Lang.PYTHON2: [Python2Checker()],
+            Lang.PYTHON3: [Python3Checker()]
+        }
+
+        def add_command(command, lang):
+            METATABLE[lang].append(command)
 
         # Format option
         if ARGS.function == "format":
-            FORMATTERS = []
 
             # Clang-format
             CLANG_FOUND = False
             if ARGS.clang_format is None:
                 L = search_program(r"clang-format-[1-9]\.[0-9]|^clang-format$")
                 if len(L) == 0:
-                    log("clang-format not found")
+                    LOGGER.warning("clang-format not found")
                 else:
                     ARGS.clang_format = L[0]
                     CLANG_FOUND = True
             else:
                 RES = distutils.spawn.find_executable(ARGS.clang_format)
                 if RES is None:
-                    log("clang-format ({0}) not found".format(
+                    LOGGER.warning("clang-format ({0}) not found".format(
                         ARGS.clang_format))
                 else:
                     CLANG_FOUND = True
 
             if CLANG_FOUND:
-                log("{0} found".format(ARGS.clang_format))
-                FORMATTER = FileFormatter(ARGS.clang_format,
-                                          CPP_EXTENSIONS,
-                                          None,
-                                          "-i -style=\"{{BasedOnStyle: Google"\
-                                          ", ColumnLimit: {0}}}\"".format(
-                                              ARGS.line_length))
-                FORMATTERS.append(FORMATTER)
+                LOGGER.debug("{0} found".format(ARGS.clang_format))
+                CMD = Command(ARGS.clang_format,
+                              "-i -style=\"{{BasedOnStyle: Google, " \
+                              "ColumnLimit: {0}}}\"".format(ARGS.line_length))
+                add_command(CMD, Lang.CPP)
+
 
             # Format with astyle
             RES = distutils.spawn.find_executable(ARGS.astyle)
             if RES is None:
-                log("astyle ({0}) not found".format(ARGS.astyle))
+                LOGGER.warning("astyle ({0}) not found".format(ARGS.astyle))
             else:
-                log("{0} found".format(ARGS.astyle))
-                FORMATTER = FileFormatter(ARGS.astyle,
-                                          CPP_EXTENSIONS,
-                                          None,
-                                          "--style=google " \
-                                          "--max-code-length={0} -n".format(
+                LOGGER.debug("{0} found".format(ARGS.astyle))
+                CMD = Command(ARGS.astyle,
+                              "--style=google --max-code-length={0} -n".format(
                                               ARGS.line_length))
-                FORMATTERS.append(FORMATTER)
+                add_command(CMD, Lang.CPP)
 
             # Format with autopep8
             RES = distutils.spawn.find_executable(ARGS.autopep8)
             if RES is None:
-                log("autopep8 ({0}) not found".format(ARGS.autopep8))
+                LOGGER.warning(
+                    "autopep8 ({0}) not found".format(
+                        ARGS.autopep8))
             else:
-                log("{0} found".format(ARGS.autopep8))
-                FORMATTER = FileFormatter(ARGS.autopep8,
-                                          PYTHON_EXTENSIONS,
-                                          PYTHON_SHEBANGS_REGEX,
-                                          "--in-place --aggressive")
-                FORMATTERS.append(FORMATTER)
-
-
-            if len(FORMATTERS) is 0:
-                raise RuntimeError("No FORMATTERS have been detected")
-
-            for p in ARGS.targets:
-                FileProcessor(FORMATTERS).process_path(p, ARGS.exceptions)
-
+                LOGGER.debug("{0} found".format(ARGS.autopep8))
+                CMD = Command(ARGS.autopep8, "--in-place --aggressive")
+                add_command(CMD, Lang.PYTHON2)
+                add_command(CMD, Lang.PYTHON3)
 
         # Check option
         elif ARGS.function == "check":
-            CHECKERS = []
 
             # Cpplint
             RES = distutils.spawn.find_executable(ARGS.cpplint)
             if RES is None:
-                log("cpplint ({0}) not found".format(ARGS.cpplint))
+                LOGGER.warning("cpplint ({0}) not found".format(ARGS.cpplint))
             else:
-                log("{0} found".format(ARGS.cpplint))
-                CHECKER = FileChecker(ARGS.cpplint,
-                                      CPP_EXTENSIONS,
-                                      None,
-                                      "--linelength={0} " \
-                                      "--filter=-whitespace/indent," \
-                                      "-build/c++11,-runtime/references".format(
-                                          ARGS.line_length))
-                CHECKERS.append(CHECKER)
+                LOGGER.debug("{0} found".format(ARGS.cpplint))
+                CMD = Command(ARGS.cpplint,
+                              "--linelength={0} "
+                              "--filter=-whitespace/indent,"
+                              "-build/c++11,-runtime/references".format(
+                                  ARGS.line_length))
+                add_command(CMD, Lang.CPP)
 
             # Pylint for python 2
             RES = distutils.spawn.find_executable(ARGS.pylint2)
             if RES is None:
-                log("pylint2 ({0}) not found".format(ARGS.pylint2))
+                LOGGER.warning("pylint2 ({0}) not found".format(ARGS.pylint2))
             else:
-                log("{0} found".format(ARGS.pylint2))
-                CHECKER = FileChecker(ARGS.pylint2, PYTHON_EXTENSIONS,
-                                      PYTHON2_SHEBANG_REGEX,
-                                      "--reports=no")
-                CHECKERS.append(CHECKER)
+                LOGGER.debug("{0} found".format(ARGS.pylint2))
+                CMD = Command(ARGS.pylint2, "--reports=no")
+                add_command(CMD, Lang.PYTHON2)
 
             # Pylint for python 3
             RES = distutils.spawn.find_executable(ARGS.pylint3)
             if RES is None:
-                log("pylint3 ({0}) not found".format(ARGS.pylint3))
+                LOGGER.warning("pylint3 ({0}) not found".format(ARGS.pylint3))
             else:
-                log("{0} found".format(ARGS.pylint3))
-                CHECKER = FileChecker(ARGS.pylint3, PYTHON_EXTENSIONS,
-                                      PYTHON3_SHEBANG_REGEX,
-                                      "--reports=no")
-                CHECKERS.append(CHECKER)
+                LOGGER.debug("{0} found".format(ARGS.pylint3))
+                CMD = Command(ARGS.pylint3, "--reports=no")
+                add_command(CMD, Lang.PYTHON3)
 
-            if len(CHECKERS) is 0:
-                raise RuntimeError("No checkers have been detected")
-
-            for p in ARGS.targets:
-                FileProcessor(CHECKERS).process_path(p, ARGS.exceptions)
-
-        else:
-            sys.exit("An error occured: Unknown action to perform")
-        sys.exit()
+        for lang, tools in METATABLE.items():
+            if len(tools) < 2:
+                raise RuntimeError(
+                    "No utilities have been detected for lang {0}".format(lang))
     except RuntimeError as exception:
         sys.exit("An error occured: {0}".format(exception))
 
+
+    #===
+    # Processing
+    #===
+    for p in ARGS.targets:
+        if os.path.isdir(p):
+            for root, sdir, files in os.walk(p):
+                for f in files:
+                    process_file(root + '/' + f, METATABLE)
+        else:
+            process_file(p, METATABLE)
+
+
+    sys.exit(0)
+ 
