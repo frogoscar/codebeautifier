@@ -586,8 +586,9 @@ class CodeBeautifier(object):
                 if len(line) > 2 and line[0] == '#' and line[1] == '!':
                     return line
         except UnicodeDecodeError:
-            CodeBeautifier.logger.error(
-                "Fail to read from \"" + filename + "\"")
+            # This exception is mostly thrown by binary files.
+            # Let's fail silently...
+            pass
         return None
 
     # pylint: disable=too-many-branches
