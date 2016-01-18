@@ -7,6 +7,20 @@ It can be used by developpers before forging a commit and by scripts which
 automate code style checking within the integration process.
 
 
+Installation
+------------
+
+Codebeautifier can be installed by the following command (potentially as root):
+
+```
+#  python3 setup.py install
+```
+
+Note that the tools used by Codebeautifier are not included.
+Please refer to the next section for more info about how to install these
+utilities.
+
+
 Supported Tools & Languages
 ---------------------------
 
@@ -90,15 +104,6 @@ The Java formatter used is checkstyle. It is possible to specify directly the JA
 ```
 $  codebeautifier check --checkstyle /path/to/checkstyle.jar file.java
 $  codebeautifier check --checkstyle com.puppycrawl.tools.checkstyle.Main file.java
-```
-
-Installation
-------------
-
-Codebeautifier can be installed outside of the monolothic source tree:
-
-```
-#  python3 setup.py install
 ```
 
 Authors
