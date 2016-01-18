@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='codebeautifier',
@@ -24,5 +24,5 @@ setup(
     ],
     keywords='linter code checker formatter',
     scripts=['codebeautifier'],
-    requires=['argparse', 'logging', 'colorlog', 'enum'],
+    install_requires=['argparse', 'colorlog'],
 )
