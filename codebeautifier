@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 #
-# Copyright (c) 2015 Ercom
+# Copyright (c) 2015 - 2016 Ercom
 #
 # Authors:
 #   - Alexandre Acebedo <alexandre.acebedo@ercom.fr>
@@ -136,8 +136,8 @@ class Tool(object):
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
             raise RuntimeError(
-                "\"{0}\" does not respect coding rules. Please run "
-                "\"codebeautifier format {0}\" to correct the issues"
+                "\"{0}\" does not respect coding rules. You may run "
+                "\"codebeautifier format {0}\" to correct formatting issues"
                 .format(target))
 
     def get_id(self):
