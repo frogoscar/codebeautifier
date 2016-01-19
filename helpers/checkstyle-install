@@ -1,0 +1,61 @@
+#! /usr/bin/env sh
+#
+# Downloads and installs checkstlye 6.14.1
+# Has been written for Ubuntu (15.04). May not work on other GNU/Linux distributions!
+#
+
+set -e
+set -u
+
+DOWNLOAD_DIR="$(mktemp -d)"
+CHECKSTYLE=checkstyle-6.14.1-all.jar
+CHECKSTYLE_JAR="$DOWNLOAD_DIR/$CHECKSTYLE"
+PREFIX=/usr
+JAVA_INSTALL_DIR="$PREFIX"/share/java
+WRAPPER_INSTALL_DIR="$PREFIX"/bin
+CHECKSTYLE_LINK="$JAVA_INSTALL_DIR"/checkstyle.jar
+CHECKSTYLE_WRAPPER="$DOWNLOAD_DIR"/checkstyle
+
+# Where to get checkstyle 6.14.1 from sourceforge
+CHECKSTYLE_DOWNLOAD_URL="http://downloads.sourceforge.net/project/checkstyle/checkstyle/6.14.1/checkstyle-6.14.1-all.jar?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fcheckstyle%2Ffiles%2Fcheckstyle%2F6.14.1%2F&ts=1453212368&use_mirror=skylink"
+
+log() {
+   echo "-- $@"
+}
+
+cleanup() {
+   log "Removing temporary files ($DOWNLOAD_DIR)"
+   rm -r "$DOWNLOAD_DIR"
+}
+trap cleanup EXIT
+
+# Download checkstyle from sourceforge
+wget -O "$CHECKSTYLE_JAR" "$CHECKSTYLE_DOWNLOAD_URL"
+
+# Create a wrapper script to launch checkstyle jar
+# Inspired by the wrapper bundled with the Ubuntu 15.04 debian package
+# of checkstyle
+cat > "$CHECKSTYLE_WRAPPER" << 'EOF'
+#!/usr/bin/env sh
+
+# Include the wrappers utility script
+. /usr/lib/java-wrappers/java-wrappers.sh
+
+find_java_runtime default sunmin5
+
+find_jars checkstyle
+
+run_java com.puppycrawl.tools.checkstyle.Main "$@"
+EOF
+
+# Install the jar and the wrapper
+log "Installing jar in $JAVA_INSTALL_DIR ..."
+sudo install -m 0644 "$CHECKSTYLE_JAR" "$JAVA_INSTALL_DIR"
+log "Installing wrapper in $WRAPPER_INSTALL_DIR ..."
+sudo install -m 0755 "$CHECKSTYLE_WRAPPER" "$WRAPPER_INSTALL_DIR"
+
+# Remove old jar, create a link to the installed version
+log "Creating link to jar as $CHECKSTYLE_LINK ..."
+sudo rm -f "$CHECKSTYLE_LINK"
+sudo ln -s "$JAVA_INSTALL_DIR/$CHECKSTYLE" "$CHECKSTYLE_LINK"
+
