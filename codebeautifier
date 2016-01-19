@@ -701,10 +701,8 @@ class CodeBeautifier(object):
                                   type=str, default="pylint")
         check_parser.add_argument('--pylint3', '-p3', help='Path to pylint3',
                                   type=str, default="pylint3")
-        check_parser.add_argument(
-            '--checkstyle', '-C', type=str,
-            help='Checkstyle main class or JAR',
-            default='com.puppycrawl.tools.checkstyle.CodeBeautifier')
+        check_parser.add_argument('--checkstyle', '-C', help='Path to checkstyle',
+                                  type=str, default="checkstyle")
         check_parser.add_argument("targets", type=str, nargs="+",
                                   metavar="files or directories")
         check_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
@@ -777,16 +775,12 @@ class CodeBeautifier(object):
                               "--disable=locally-disabled"
                           ], self.parsed_args.quiet)
 
-            # Checkstyle for Java
-            checkstyle_args = []
-            if CodeBeautifier.get_extension(
-                    self.parsed_args.checkstyle) == '.jar':
-                checkstyle_args.append('-jar')
-            checkstyle_args.append(self.parsed_args.checkstyle)
-            checkstyle_args.append('-c')
-            checkstyle_args.append('/google_checks.xml')
+            # Checkstyle
             self.add_tool(Tool.ToolId.CHECKSTYLE,
-                          "java", checkstyle_args, self.parsed_args.quiet,
+                          self.parsed_args.checkstyle, [
+                              "-c",
+                              "/google_checks.xml"
+                          ], self.parsed_args.quiet,
                           Tool.CheckstyleFilter())
 
         except RuntimeError as exception:
