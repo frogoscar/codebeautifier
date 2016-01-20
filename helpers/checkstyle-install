@@ -5,19 +5,36 @@
 #
 
 set -e
-set -u
 
+#==============================================================================#
+#                               Common Variables                               #
+#==============================================================================#
+
+# Temporary directory - deleted at the end of the script
 DOWNLOAD_DIR="$(mktemp -d)"
-CHECKSTYLE=checkstyle-6.14.1-all.jar
-CHECKSTYLE_JAR="$DOWNLOAD_DIR/$CHECKSTYLE"
-PREFIX=/usr
-JAVA_INSTALL_DIR="$PREFIX"/share/java
-WRAPPER_INSTALL_DIR="$PREFIX"/bin
-CHECKSTYLE_LINK="$JAVA_INSTALL_DIR"/checkstyle.jar
-CHECKSTYLE_WRAPPER="$DOWNLOAD_DIR"/checkstyle
+
+# The jar to be downloaded. Can be provided by the environment
+if [ -z "$CHECKSTYLE" ]; then
+   CHECKSTYLE=checkstyle-6.14.1-all.jar
+fi
+CHECKSTYLE_JAR="$DOWNLOAD_DIR/$CHECKSTYLE" # Where will the jar be downloaded
+
+# Installation prefix. Can be provided by the environment
+if [ -z "$PREFIX" ]; then
+   PREFIX=/usr
+fi
+JAVA_INSTALL_DIR="$PREFIX"/share/java # Where to install java
+WRAPPER_INSTALL_DIR="$PREFIX"/bin # Where to install the wrapper
+CHECKSTYLE_LINK="$JAVA_INSTALL_DIR"/checkstyle.jar # The name of the link to be created
+CHECKSTYLE_WRAPPER="$DOWNLOAD_DIR"/checkstyle # The name of the wrapper
 
 # Where to get checkstyle 6.14.1 from sourceforge
-CHECKSTYLE_DOWNLOAD_URL="http://downloads.sourceforge.net/project/checkstyle/checkstyle/6.14.1/checkstyle-6.14.1-all.jar?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fcheckstyle%2Ffiles%2Fcheckstyle%2F6.14.1%2F&ts=1453212368&use_mirror=skylink"
+if [ -z "$CHECKSTYLE_DOWNLOAD_URL" ]; then
+   CHECKSTYLE_DOWNLOAD_URL="http://downloads.sourceforge.net/project/checkstyle/checkstyle/6.14.1/checkstyle-6.14.1-all.jar?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fcheckstyle%2Ffiles%2Fcheckstyle%2F6.14.1%2F&ts=1453212368&use_mirror=skylink"
+fi
+
+set -u
+
 
 log() {
    echo "-- $@"
