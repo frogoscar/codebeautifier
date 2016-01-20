@@ -40,7 +40,12 @@ The table below shows the tools used by Codebeautifier.
 | [pylint][4]       | Python2         | Checker/Linter | Ubuntu package (`pylint`)               |
 | [pylint3][5]      | Python3         | Checker/Linter | Ubuntu package (`pylint3`)              |
 | [autopep8][6]     | Python2/Python3 | Formatter      | Ubuntu package (`python-autopep8`)      |
-| [checkstyle][7]   | Java            | Checker/Linter | See [HERE][9]. v6.2 minimum is required |
+| [checkstyle][7]   | Java            | Checker/Linter | On Ubuntu >= 16.04: `checkstyle`*       |
+
+[*] For Ubuntu versions prior 16.04, you should use the `checkstyle-install` helper script
+that resides in the `helpers/` directory. It will download checkstyle 6.14.1.jar, install it
+in your system along with a shell wrapper. This is needed because codebeautifier requires
+checkstyle v6.2 minimum.
 
 
 General Usage
@@ -96,16 +101,6 @@ $  codebeautifier -q check file/which/is/ill/formatted
 ```
 
 
-Java Checker Exception
-----------------------
-
-The Java formatter used is checkstyle. It is possible to specify directly the JAR file (extension is required), or the Java class:
-
-```
-$  codebeautifier check --checkstyle /path/to/checkstyle.jar file.java
-$  codebeautifier check --checkstyle com.puppycrawl.tools.checkstyle.Main file.java
-```
-
 Authors
 -------
 
@@ -128,5 +123,4 @@ Codebeautifier is Copyright (c) 2015 - 2016 Ercom
 [6]: https://pypi.python.org/pypi/autopep8/
 [7]: http://checkstyle.sourceforge.net/
 [8]: https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py
-[9]: http://checkstyle.sourceforge.net/#Download
 
