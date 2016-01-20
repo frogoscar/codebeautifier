@@ -91,7 +91,7 @@ wget -O "$CHECKSTYLE_JAR" "$CHECKSTYLE_DOWNLOAD_URL"
 # Inspired by the wrapper bundled with the Ubuntu 15.04 debian package
 # of checkstyle
 cat > "$CHECKSTYLE_WRAPPER" << 'EOF'
-#!/usr/bin/env sh
+#! /usr/bin/env sh
 
 # Include the wrappers utility script
 . /usr/lib/java-wrappers/java-wrappers.sh
