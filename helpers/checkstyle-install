@@ -36,14 +36,52 @@ fi
 set -u
 
 
+#==============================================================================#
+#                                   Functions                                  #
+#==============================================================================#
+
+usage() {
+   echo "Usage: $0 [-h]"
+   echo
+   echo "This script can be influenced by the following environment variables:"
+   echo " - CHECKSTYLE: name of the jar to be installed"
+   echo " - PREFIX: prefix where checkstyle must be installed"
+   echo " - CHECKSTYLE_DOWNLOAD_URL: URL where checkstyle will be retrieved"
+   echo
+}
+
 log() {
    echo "-- $@"
+}
+
+err() {
+   echo "*** $@" 1>&2
 }
 
 cleanup() {
    log "Removing temporary files ($DOWNLOAD_DIR)"
    rm -r "$DOWNLOAD_DIR"
 }
+
+
+#==============================================================================#
+#                                     Main                                     #
+#==============================================================================#
+
+# Getopt
+while getopts ":h" opt; do
+   case $opt in
+      h)
+         usage
+         exit 0
+         ;;
+      \?)
+         err "Invalid argument"
+         exit 1
+   esac
+done
+
+# Always remove temporary files
 trap cleanup EXIT
 
 # Download checkstyle from sourceforge
