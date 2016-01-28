@@ -683,8 +683,8 @@ class CodeBeautifier(object):
                                    type=str, default="autopep8")
         format_parser.add_argument('--astyle', '-a', help='Path to astyle',
                                    type=str, default="astyle")
-        format_parser.add_argument('--line-length', "-l", help='Line length',
-                                   type=int, default=80)
+        #format_parser.add_argument('--line-length', "-l", help='Line length',
+        #                           type=int, default=80)
         format_parser.add_argument("targets", type=str, nargs="+",
                                    metavar="files or directories")
         format_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
@@ -693,8 +693,8 @@ class CodeBeautifier(object):
 
         # CHECK
         check_parser = root_subparser.add_parser('check', help='Check files')
-        check_parser.add_argument('--line-length', "-l", help='Line length',
-                                  type=int, default=80)
+        #check_parser.add_argument('--line-length', "-l", help='Line length',
+        #                          type=int, default=80)
         check_parser.add_argument('--cpplint', '-c', help='Path to cpplint',
                                   type=str, default="cpplint")
         check_parser.add_argument('--pylint2', '-p2', help='Path to pylint2',
@@ -755,9 +755,10 @@ class CodeBeautifier(object):
             # Cpplint
             self.add_tool(Tool.ToolId.CPPLINT,
                           self.parsed_args.cpplint, [
-                              "--linelength={0}".format(
-                                  self.parsed_args.line_length),
+                              #"--linelength={0}".format(
+                              #    self.parsed_args.line_length),
                               "--filter=-whitespace/indent,"
+                              "-whitespace/line_length,"
                               "-build/c++11,-runtime/references"
                           ], self.parsed_args.quiet)
 
@@ -807,16 +808,17 @@ class CodeBeautifier(object):
                               self.parsed_args.clang_format, [
                                   "-i",
                                   "-style",
-                                  '{{BasedOnStyle: Google, '
-                                  'ColumnLimit: {0}}}'.format(
-                                      self.parsed_args.line_length)
+                                  '{{BasedOnStyle: Google}}'
+                                  #'{{BasedOnStyle: Google, '
+                                  #'ColumnLimit: {0}}}'.format(
+                                  #    self.parsed_args.line_length)
                               ], self.parsed_args.quiet)
 
             self.add_tool(
                 Tool.ToolId.ASTYLE, self.parsed_args.astyle, [
-                    "--style=google",
-                    "--max-code-length={0} -n".format(
-                        self.parsed_args.line_length)
+                    "--style=google"#,
+                    #"--max-code-length={0} -n".format(
+                    #    self.parsed_args.line_length)
                 ], self.parsed_args.quiet
             )
 
