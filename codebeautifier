@@ -760,6 +760,7 @@ class CodeBeautifier(object):
                               "--filter=-whitespace/indent,"
                               "-whitespace/line_length,"
                               "-whitespace/comments,"
+                              "-runtime/int,"
                               "-build/c++11,-runtime/references"
                           ], self.parsed_args.quiet)
 
