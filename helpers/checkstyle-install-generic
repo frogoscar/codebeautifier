@@ -1,0 +1,109 @@
+#! /usr/bin/env sh
+#
+# Downloads and installs checkstlye 6.14.1
+# Has been written to works on all linux operation system (as much as possible), but only tested on ubuntu 14.04. May not work on other GNU/Linux distributions!
+#
+
+set -e
+
+#==============================================================================#
+#                               Common Variables                               #
+#==============================================================================#
+
+# Temporary directory - deleted at the end of the script
+DOWNLOAD_DIR="$(mktemp -d)"
+
+# The jar to be downloaded. Can be provided by the environment
+if [ -z "$CHECKSTYLE" ]; then
+   CHECKSTYLE=checkstyle-6.14.1-all.jar
+fi
+CHECKSTYLE_JAR="$DOWNLOAD_DIR/$CHECKSTYLE" # Where will the jar be downloaded
+
+# Installation prefix. Can be provided by the environment
+if [ -z "$PREFIX" ]; then
+   PREFIX=/usr
+fi
+JAVA_INSTALL_DIR="$PREFIX"/share/java # Where to install java
+WRAPPER_INSTALL_DIR="$PREFIX"/bin # Where to install the wrapper
+CHECKSTYLE_LINK="$JAVA_INSTALL_DIR"/checkstyle.jar # The name of the link to be created
+CHECKSTYLE_WRAPPER="$DOWNLOAD_DIR"/checkstyle # The name of the wrapper
+
+# Where to get checkstyle 6.14.1 from sourceforge
+if [ -z "$CHECKSTYLE_DOWNLOAD_URL" ]; then
+   CHECKSTYLE_DOWNLOAD_URL="http://downloads.sourceforge.net/project/checkstyle/checkstyle/6.14.1/checkstyle-6.14.1-all.jar?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fcheckstyle%2Ffiles%2Fcheckstyle%2F6.14.1%2F&ts=1453212368&use_mirror=skylink"
+fi
+
+set -u
+
+
+#==============================================================================#
+#                                   Functions                                  #
+#==============================================================================#
+
+usage() {
+   echo "Usage: $0 [-h]"
+   echo
+   echo "This script can be influenced by the following environment variables:"
+   echo " - CHECKSTYLE: name of the jar to be installed"
+   echo " - PREFIX: prefix where checkstyle must be installed"
+   echo " - CHECKSTYLE_DOWNLOAD_URL: URL where checkstyle will be retrieved"
+   echo
+}
+
+log() {
+   echo "-- $@"
+}
+
+err() {
+   echo "*** $@" 1>&2
+}
+
+cleanup() {
+   log "Removing temporary files ($DOWNLOAD_DIR)"
+   rm -r "$DOWNLOAD_DIR"
+}
+
+
+#==============================================================================#
+#                                     Main                                     #
+#==============================================================================#
+
+# Getopt
+while getopts ":h" opt; do
+   case $opt in
+      h)
+         usage
+         exit 0
+         ;;
+      \?)
+         err "Invalid argument"
+         exit 1
+   esac
+done
+
+# Always remove temporary files
+trap cleanup EXIT
+
+# Download checkstyle from sourceforge
+wget -O "$CHECKSTYLE_JAR" "$CHECKSTYLE_DOWNLOAD_URL"
+
+# Create a wrapper script to launch checkstyle jar
+# Inspired by the wrapper bundled with the Ubuntu 15.04 debian package
+# of checkstyle
+cat > "$CHECKSTYLE_WRAPPER" << EOF
+#! /usr/bin/env sh
+
+EOF
+echo "java -jar $JAVA_INSTALL_DIR/$CHECKSTYLE \"\$@\"" >> $CHECKSTYLE_WRAPPER
+
+# Install the jar and the wrapper
+log "Installing jar in $JAVA_INSTALL_DIR ..."
+sudo install -m 0644 "$CHECKSTYLE_JAR" "$JAVA_INSTALL_DIR"
+log "Installing wrapper in $WRAPPER_INSTALL_DIR ..."
+sudo install -m 0755 "$CHECKSTYLE_WRAPPER" "$WRAPPER_INSTALL_DIR"
+
+# Remove old jar, create a link to the installed version
+log "Creating link to jar as $CHECKSTYLE_LINK ..."
+sudo rm -f "$CHECKSTYLE_LINK"
+sudo ln -s "$JAVA_INSTALL_DIR/$CHECKSTYLE" "$CHECKSTYLE_LINK"
+
