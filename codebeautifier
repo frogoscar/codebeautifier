@@ -91,7 +91,8 @@ class Tool(object):
                 stderr (str): What was printed in stderr
             """
             if super().filter_command(retcode, stdout, stderr):
-                if stdout.find(': warning: ') is -1:
+                nb_stdout_fails = len([s for s in stdout + stderr if re.match("^\s*\[(ERROR|WARN)\s*\]", s)])
+                if nb_stdout_fails == 0:
                     return True
             return False
 
@@ -124,17 +125,23 @@ class Tool(object):
         proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         out, err = proc.communicate()
-        out = out.decode('UTF-8')
-        err = err.decode('UTF-8')
+        out = out.decode('UTF-8').splitlines()
+        err = err.decode('UTF-8').splitlines()
 
         if self.quiet is False:
             if out:
-                print("STDOUT:\n", out)
+                print("STDOUT:")
+                for out_line in out:
+                    print(out_line)
             if err:
-                print("STDERR:\n", err)
+                print("STDERR:")
+                for err_line in err:
+                    print(err_line)
+
         if self.command_filter.filter_command(
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
+            print("\n")
             raise RuntimeError(
                 "\"{0}\" does not respect coding rules. You may run "
                 "\"codebeautifier format {0}\" to correct formatting issues"
@@ -919,6 +926,7 @@ class CodeBeautifier(object):
                     target, self.processors, self.parsed_args.strict,
                     ignores, func_to_execute
                 )
+
         return CodeBeautifier.status
 
 if __name__ == "__main__":
