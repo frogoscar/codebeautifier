@@ -95,7 +95,8 @@ class Tool(object):
             """
             if super().filter_command(retcode, stdout, stderr):
                 nb_stdout_fails = len(
-                    [s for s in stdout + stderr if re.match("^\s*\[(ERROR|WARN)\s*\]", s)])
+                    [s for s in stdout + stderr
+                        if re.match("^\s*\[(ERROR|WARN)\s*\]", s)])
                 if nb_stdout_fails == 0:
                     return True
             return False
@@ -347,7 +348,7 @@ class FileProcessor(object):
                                     stdout=subprocess.PIPE)
             out = proc.communicate()[0].decode('UTF-8').rstrip()
             if proc.returncode is 0:
-                if not out in self.get_mime_types():
+                if out not in self.get_mime_types():
                     ret = [FileProcessor.Status.unhandled_mimetype]
         return ret
 
@@ -583,7 +584,7 @@ class CodeBeautifier(object):
                 for afile in os.listdir(path):
                     absfile = os.path.join(path, afile)
                     # Directory was not visited before
-                    if not absfile in visited:
+                    if absfile not in visited:
                         # File in directory is an executable file
                         if os.path.isfile(absfile) and os.access(absfile,
                                                                  os.X_OK):
@@ -654,9 +655,9 @@ class CodeBeautifier(object):
                 # Union of the errors
                 all_errors = list(set(errors) | set(all_errors))
 
-                # Determine whether mime type was handled or not
+                # Determine whether mime type was handled or not
                 mimetype_err = processor.check_mime_type(filename)
-                if not FileProcessor.Status.unhandled_mimetype in mimetype_err:
+                if FileProcessor.Status.unhandled_mimetype not in mimetype_err:
                     mimetype_handled = True
 
             if file_processed is not None:
@@ -719,8 +720,12 @@ class CodeBeautifier(object):
         #                           type=int, default=80)
         format_parser.add_argument("targets", type=str, nargs="+",
                                    metavar="files or directories")
-        format_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
-                                   metavar="Unprocessed paths")
+        format_parser.add_argument(
+            "--ignored-paths",
+            "-e",
+            type=str,
+            nargs="*",
+            metavar="Unprocessed paths")
         format_parser.add_argument("--strict", "-S", action='store_true')
 
         # CHECK
@@ -735,8 +740,12 @@ class CodeBeautifier(object):
                                   type=str, default="pylint")
         check_parser.add_argument('--pylint3', '-p3', help='Path to pylint3',
                                   type=str, default="pylint3")
-        check_parser.add_argument('--checkstyle', '-C', help='Path to checkstyle',
-                                  type=str, default="checkstyle")
+        check_parser.add_argument(
+            '--checkstyle',
+            '-C',
+            help='Path to checkstyle',
+            type=str,
+            default="checkstyle")
         check_parser.add_argument('--autopep8', '-A', help='Path to autopep8',
                                   type=str, default="autopep8")
         check_parser.add_argument("targets", type=str, nargs="+",
@@ -790,8 +799,6 @@ class CodeBeautifier(object):
             # Cpplint
             self.add_tool(Tool.ToolId.CPPLINT,
                           self.parsed_args.cpplint, [
-                              #"--linelength={0}".format(
-                              #    self.parsed_args.line_length),
                               "--filter=-whitespace/indent,"
                               "-whitespace/line_length,"
                               "-whitespace/comments,"
@@ -851,16 +858,11 @@ class CodeBeautifier(object):
                                   "-i",
                                   "-style",
                                   '{{BasedOnStyle: Google}}'
-                                  #'{{BasedOnStyle: Google, '
-                                  #'ColumnLimit: {0}}}'.format(
-                                  #    self.parsed_args.line_length)
                               ], self.parsed_args.quiet)
 
             self.add_tool(
                 Tool.ToolId.ASTYLE, self.parsed_args.astyle, [
                     "--style=google"  # ,
-                    #"--max-code-length={0} -n".format(
-                    #    self.parsed_args.line_length)
                 ], self.parsed_args.quiet
             )
 
@@ -925,14 +927,14 @@ class CodeBeautifier(object):
                 regex = re.compile(ign)
                 ignores.append(regex)
 
-        #===
+        # ===
         # Processing
-        #===
+        # ===
         func_to_execute = None
         if self.parsed_args.function == "format":
-            func_to_execute = lambda x, y: x.format_file(y)
+            def func_to_execute(x, y): x.format_file(y)
         else:
-            func_to_execute = lambda x, y: x.check_file(y)
+            def func_to_execute(x, y): x.check_file(y)
         for target in self.parsed_args.targets:
             if not os.path.exists(target):
                 CodeBeautifier.logger.error(
