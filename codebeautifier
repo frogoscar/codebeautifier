@@ -13,9 +13,10 @@
 Helper to use linters and formatters.
 Currently supported:
  - Python:
-   - pylint (replaced by autopep8)
-   - pylint3 (replaced by autopep8)
-   - autopep8 (checker and formatter. How busy it is!)
+   - pylint (checker)
+   - pylint3 (checker)
+   - pep8 (checker)
+   - autopep8 (formatter)
  - C++:
    - astyle (formatter)
    - clang-format (formatter)
@@ -53,6 +54,7 @@ class Tool(object):
         PYLINT3 = 5
         CHECKSTYLE = 6
         AUTOPEP8 = 7
+        PEP8 = 8
 
     # pylint: disable=too-few-public-methods
     class Filter(object):
@@ -421,7 +423,7 @@ class Python2FileProcessor(FileProcessor):
     def __init__(self, tools):
         super().__init__()
         for tool in tools:
-            if tool.get_id() is Tool.ToolId.AUTOPEP8:
+            if tool.get_id() is Tool.ToolId.PEP8:
                 self.checker = tool
                 break
 
@@ -462,7 +464,7 @@ class Python3FileProcessor(FileProcessor):
     def __init__(self, tools):
         super().__init__()
         for tool in tools:
-            if tool.get_id() is Tool.ToolId.AUTOPEP8:
+            if tool.get_id() is Tool.ToolId.PEP8:
                 self.checker = tool
                 break
 
@@ -725,6 +727,8 @@ class CodeBeautifier(object):
         check_parser = root_subparser.add_parser('check', help='Check files')
         # check_parser.add_argument('--line-length', "-l", help='Line length',
         #                          type=int, default=80)
+        check_parser.add_argument('--pep8', '-p', help='Path to pep8',
+                                  type=str, default="pep8")
         check_parser.add_argument('--cpplint', '-c', help='Path to cpplint',
                                   type=str, default="cpplint")
         check_parser.add_argument('--pylint2', '-p2', help='Path to pylint2',
@@ -795,18 +799,23 @@ class CodeBeautifier(object):
                               "-build/c++11,-runtime/references"
                           ], self.parsed_args.quiet)
 
-            # Pylint2 (replaced by autopep8)
+            # Pylint2
             self.add_tool(Tool.ToolId.PYLINT2,
                           self.parsed_args.pylint2, [
                               "--reports=no",
                               "--disable=locally-disabled"
                           ], self.parsed_args.quiet)
 
-            # Pylint3 (replaced by autopep8)
+            # Pylint3
             self.add_tool(Tool.ToolId.PYLINT3,
                           self.parsed_args.pylint3, [
                               "--reports=no",
                               "--disable=locally-disabled"
+                          ], self.parsed_args.quiet)
+
+            # Pep8
+            self.add_tool(Tool.ToolId.PEP8,
+                          self.parsed_args.pep8, [
                           ], self.parsed_args.quiet)
 
             # Checkstyle
@@ -816,13 +825,6 @@ class CodeBeautifier(object):
                               "/google_checks.xml"
                           ], self.parsed_args.quiet,
                           Tool.CheckstyleFilter())
-
-            # Autopep8 (not only formatter for Python, but also checker)
-            self.add_tool(Tool.ToolId.AUTOPEP8,
-                          self.parsed_args.autopep8, [
-                              "--list-fixes",
-                          ], self.parsed_args.quiet,
-                          Tool.Autopep8Filter())
 
         except RuntimeError as exception:
             sys.exit("An error occured: {0}".format(exception))
