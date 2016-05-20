@@ -1,0 +1,23 @@
+
+stages:
+  - test
+
+test_ubuntu1604:
+  image: ubuntu:16.04
+  script:
+  - apt update
+  - apt install -yyq python3-pip pylint pylint3
+  - pip3 install colorlog
+  - pip3 install autopep8
+  - ./codebeautifier --help
+  - ./codebeautifier check codebeautifier
+
+test_ubuntu1510:
+  image: ubuntu:15.10
+  script:
+  - apt update
+  - apt install -yyq python3-pip pylint pylint3
+  - pip3 install colorlog
+  - pip3 install autopep8
+  - ./codebeautifier --help
+  - ./codebeautifier check codebeautifier
