@@ -13,9 +13,10 @@
 Helper to use linters and formatters.
 Currently supported:
  - Python:
-   - pylint (replaced by autopep8)
-   - pylint3 (replaced by autopep8)
-   - autopep8 (checker and formatter. How busy it is!)
+   - pylint (checker)
+   - pylint3 (checker)
+   - pep8 (checker)
+   - autopep8 (formatter)
  - C++:
    - astyle (formatter)
    - clang-format (formatter)
@@ -37,8 +38,6 @@ from abc import abstractmethod
 from enum import IntEnum, unique
 
 
-
-
 class Tool(object):
     """Wrapper to execute a program-line tool.
 
@@ -55,6 +54,7 @@ class Tool(object):
         PYLINT3 = 5
         CHECKSTYLE = 6
         AUTOPEP8 = 7
+        PEP8 = 8
 
     # pylint: disable=too-few-public-methods
     class Filter(object):
@@ -63,6 +63,7 @@ class Tool(object):
         the failure of its execution
         """
         # pylint: disable=no-self-use
+
         def filter_command(self, retcode, dummy_stdout, dummy_stderr):
             """Basic filtering function
 
@@ -81,6 +82,7 @@ class Tool(object):
         Parses the outputs and result of checkstyle to determine
         the failure of its execution
         """
+
         def filter_command(self, retcode, stdout, stderr):
             """
             Parses the output of checkstyle to determine
@@ -92,7 +94,9 @@ class Tool(object):
                 stderr (str): What was printed in stderr
             """
             if super().filter_command(retcode, stdout, stderr):
-                nb_stdout_fails = len([s for s in stdout + stderr if re.match("^\s*\[(ERROR|WARN)\s*\]", s)])
+                nb_stdout_fails = len(
+                    [s for s in stdout + stderr
+                        if re.match("^\s*\[(ERROR|WARN)\s*\]", s)])
                 if nb_stdout_fails == 0:
                     return True
             return False
@@ -103,6 +107,7 @@ class Tool(object):
         Parses the outputs and result of checkstyle to determine
         the failure of its execution
         """
+
         def filter_command(self, retcode, stdout, stderr):
             """
             Parses the output of checkstyle to determine
@@ -114,7 +119,8 @@ class Tool(object):
                 stderr (str): What was printed in stderr
             """
             if super().filter_command(retcode, stdout, stderr):
-                nb_stdout_fails = len([s for s in stdout + stderr if re.match("^(E|W)", s)])
+                nb_stdout_fails = len(
+                    [s for s in stdout + stderr if re.match("^(E|W)", s)])
                 if nb_stdout_fails == 0:
                     return True
             return False
@@ -142,7 +148,7 @@ class Tool(object):
         """
         if arguments is None:
             arguments = []
-        command = [self.program] + self.common_arguments +  arguments + [target]
+        command = [self.program] + self.common_arguments + arguments + [target]
         CodeBeautifier.logger.info(command)
         proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
@@ -193,11 +199,11 @@ class FileProcessor(object):
 
         def __str__(self):
             err = {
-                FileProcessor.Status.no_extension:       'No Extension',
-                FileProcessor.Status.no_shebang:         'No Shebang',
-                FileProcessor.Status.invalid_extension:  'Invalid Extension',
-                FileProcessor.Status.invalid_shebang:    'Invalid Shebang',
-                FileProcessor.Status.invalid_file:       'Invalid File',
+                FileProcessor.Status.no_extension: 'No Extension',
+                FileProcessor.Status.no_shebang: 'No Shebang',
+                FileProcessor.Status.invalid_extension: 'Invalid Extension',
+                FileProcessor.Status.invalid_shebang: 'Invalid Shebang',
+                FileProcessor.Status.invalid_file: 'Invalid File',
                 FileProcessor.Status.unhandled_mimetype: 'Unhandled Mime Type'
             }
             return "{0}".format(err[self.value])
@@ -217,7 +223,6 @@ class FileProcessor(object):
                 if index is not len(status_list) - 1:
                     msg += ', '
             return msg
-
 
     def __init__(self, file_shebang_regex=None):
         self.formatter = None
@@ -343,7 +348,7 @@ class FileProcessor(object):
                                     stdout=subprocess.PIPE)
             out = proc.communicate()[0].decode('UTF-8').rstrip()
             if proc.returncode is 0:
-                if not out in self.get_mime_types():
+                if out not in self.get_mime_types():
                     ret = [FileProcessor.Status.unhandled_mimetype]
         return ret
 
@@ -406,6 +411,7 @@ class CppFileProcessor(FileProcessor):
             FileProcessor.check_extension(
                 filename, self.get_extensions())
 
+
 class Python2FileProcessor(FileProcessor):
     """Checker for Python 2"""
 
@@ -418,7 +424,7 @@ class Python2FileProcessor(FileProcessor):
     def __init__(self, tools):
         super().__init__()
         for tool in tools:
-            if tool.get_id() is Tool.ToolId.AUTOPEP8:
+            if tool.get_id() is Tool.ToolId.PEP8:
                 self.checker = tool
                 break
 
@@ -459,7 +465,7 @@ class Python3FileProcessor(FileProcessor):
     def __init__(self, tools):
         super().__init__()
         for tool in tools:
-            if tool.get_id() is Tool.ToolId.AUTOPEP8:
+            if tool.get_id() is Tool.ToolId.PEP8:
                 self.checker = tool
                 break
 
@@ -578,25 +584,23 @@ class CodeBeautifier(object):
                 for afile in os.listdir(path):
                     absfile = os.path.join(path, afile)
                     # Directory was not visited before
-                    if not absfile in visited:
+                    if absfile not in visited:
                         # File in directory is an executable file
                         if os.path.isfile(absfile) and os.access(absfile,
                                                                  os.X_OK):
                             # It fulfills the regex
-                            if regex.match(afile) != None:
+                            if regex.match(afile) is not None:
                                 candidates.append(absfile)
                         # Mark the directory to visit it only once
                         visited[absfile] = True
 
         return candidates
 
-
     @staticmethod
     def get_extension(filename):
         """Returns the extension of a file
         """
         return os.path.splitext(filename)[1]
-
 
     @staticmethod
     def get_shebang(filename):
@@ -651,9 +655,9 @@ class CodeBeautifier(object):
                 # Union of the errors
                 all_errors = list(set(errors) | set(all_errors))
 
-                # Determine whether mime type was handled or not
+                # Determine whether mime type was handled or not
                 mimetype_err = processor.check_mime_type(filename)
-                if not FileProcessor.Status.unhandled_mimetype in mimetype_err:
+                if FileProcessor.Status.unhandled_mimetype not in mimetype_err:
                     mimetype_handled = True
 
             if file_processed is not None:
@@ -684,7 +688,6 @@ class CodeBeautifier(object):
             if strict is True:
                 sys.exit(3)
 
-
     @staticmethod
     def parse_args(raw_args):
         """Parse program-line arguments and returns the parser
@@ -704,7 +707,8 @@ class CodeBeautifier(object):
         root_subparser = parser.add_subparsers(dest="function")
 
         # FORMAT
-        format_parser = root_subparser.add_parser('format', help='Format files')
+        format_parser = root_subparser.add_parser(
+            'format', help='Format files')
         format_parser.add_argument('--clang-format', '-c',
                                    help='Path to clang-format',
                                    type=str, default=None)
@@ -712,26 +716,36 @@ class CodeBeautifier(object):
                                    type=str, default="autopep8")
         format_parser.add_argument('--astyle', '-a', help='Path to astyle',
                                    type=str, default="astyle")
-        #format_parser.add_argument('--line-length', "-l", help='Line length',
+        # format_parser.add_argument('--line-length', "-l", help='Line length',
         #                           type=int, default=80)
         format_parser.add_argument("targets", type=str, nargs="+",
                                    metavar="files or directories")
-        format_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
-                                   metavar="Unprocessed paths")
+        format_parser.add_argument(
+            "--ignored-paths",
+            "-e",
+            type=str,
+            nargs="*",
+            metavar="Unprocessed paths")
         format_parser.add_argument("--strict", "-S", action='store_true')
 
         # CHECK
         check_parser = root_subparser.add_parser('check', help='Check files')
-        #check_parser.add_argument('--line-length', "-l", help='Line length',
+        # check_parser.add_argument('--line-length', "-l", help='Line length',
         #                          type=int, default=80)
+        check_parser.add_argument('--pep8', '-p', help='Path to pep8',
+                                  type=str, default="pep8")
         check_parser.add_argument('--cpplint', '-c', help='Path to cpplint',
                                   type=str, default="cpplint")
         check_parser.add_argument('--pylint2', '-p2', help='Path to pylint2',
                                   type=str, default="pylint")
         check_parser.add_argument('--pylint3', '-p3', help='Path to pylint3',
                                   type=str, default="pylint3")
-        check_parser.add_argument('--checkstyle', '-C', help='Path to checkstyle',
-                                  type=str, default="checkstyle")
+        check_parser.add_argument(
+            '--checkstyle',
+            '-C',
+            help='Path to checkstyle',
+            type=str,
+            default="checkstyle")
         check_parser.add_argument('--autopep8', '-A', help='Path to autopep8',
                                   type=str, default="autopep8")
         check_parser.add_argument("targets", type=str, nargs="+",
@@ -741,7 +755,6 @@ class CodeBeautifier(object):
         check_parser.add_argument("--strict", "-S", action='store_true')
 
         return parser.parse_args(raw_args[1:])
-
 
     def __init__(self):
         self.tools = []
@@ -786,8 +799,6 @@ class CodeBeautifier(object):
             # Cpplint
             self.add_tool(Tool.ToolId.CPPLINT,
                           self.parsed_args.cpplint, [
-                              #"--linelength={0}".format(
-                              #    self.parsed_args.line_length),
                               "--filter=-whitespace/indent,"
                               "-whitespace/line_length,"
                               "-whitespace/comments,"
@@ -795,18 +806,23 @@ class CodeBeautifier(object):
                               "-build/c++11,-runtime/references"
                           ], self.parsed_args.quiet)
 
-            # Pylint2 (replaced by autopep8)
+            # Pylint2
             self.add_tool(Tool.ToolId.PYLINT2,
                           self.parsed_args.pylint2, [
                               "--reports=no",
                               "--disable=locally-disabled"
                           ], self.parsed_args.quiet)
 
-            # Pylint3 (replaced by autopep8)
+            # Pylint3
             self.add_tool(Tool.ToolId.PYLINT3,
                           self.parsed_args.pylint3, [
                               "--reports=no",
                               "--disable=locally-disabled"
+                          ], self.parsed_args.quiet)
+
+            # Pep8
+            self.add_tool(Tool.ToolId.PEP8,
+                          self.parsed_args.pep8, [
                           ], self.parsed_args.quiet)
 
             # Checkstyle
@@ -816,13 +832,6 @@ class CodeBeautifier(object):
                               "/google_checks.xml"
                           ], self.parsed_args.quiet,
                           Tool.CheckstyleFilter())
-
-            # Autopep8 (not only formatter for Python, but also checker)
-            self.add_tool(Tool.ToolId.AUTOPEP8,
-                          self.parsed_args.autopep8, [
-                              "--list-fixes",
-                          ], self.parsed_args.quiet,
-                          Tool.Autopep8Filter())
 
         except RuntimeError as exception:
             sys.exit("An error occured: {0}".format(exception))
@@ -849,16 +858,11 @@ class CodeBeautifier(object):
                                   "-i",
                                   "-style",
                                   '{{BasedOnStyle: Google}}'
-                                  #'{{BasedOnStyle: Google, '
-                                  #'ColumnLimit: {0}}}'.format(
-                                  #    self.parsed_args.line_length)
                               ], self.parsed_args.quiet)
 
             self.add_tool(
                 Tool.ToolId.ASTYLE, self.parsed_args.astyle, [
-                    "--style=google"#,
-                    #"--max-code-length={0} -n".format(
-                    #    self.parsed_args.line_length)
+                    "--style=google"  # ,
                 ], self.parsed_args.quiet
             )
 
@@ -901,7 +905,6 @@ class CodeBeautifier(object):
 
         self.initialize_processors()
 
-
     def main(self, args):
         """Main entry point of CodeBeautifier
 
@@ -924,14 +927,14 @@ class CodeBeautifier(object):
                 regex = re.compile(ign)
                 ignores.append(regex)
 
-        #===
+        # ===
         # Processing
-        #===
+        # ===
         func_to_execute = None
         if self.parsed_args.function == "format":
-            func_to_execute = lambda x, y: x.format_file(y)
+            def func_to_execute(x, y): x.format_file(y)
         else:
-            func_to_execute = lambda x, y: x.check_file(y)
+            def func_to_execute(x, y): x.check_file(y)
         for target in self.parsed_args.targets:
             if not os.path.exists(target):
                 CodeBeautifier.logger.error(
