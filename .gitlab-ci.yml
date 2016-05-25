@@ -1,8 +1,14 @@
 
 stages:
   - test
+  - build
+  - testdelivery
+  - deploy
+  - cleanup
+
 
 test_ubuntu1604:
+  stage: test
   image: ubuntu:16.04
   script:
   - apt update
@@ -11,8 +17,10 @@ test_ubuntu1604:
   - pip3 install autopep8
   - ./codebeautifier --help
   - ./codebeautifier check codebeautifier
+  - ./codebeautifier check setup.py
 
 test_ubuntu1510:
+  stage: test
   image: ubuntu:15.10
   script:
   - apt update
@@ -21,3 +29,54 @@ test_ubuntu1510:
   - pip3 install autopep8
   - ./codebeautifier --help
   - ./codebeautifier check codebeautifier
+  - ./codebeautifier check setup.py
+
+build_docker:
+  stage: build
+  image: docker:latest
+  services:
+  - docker:dind
+  script:
+  - docker --version
+  - docker build -t registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} .
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+  - docker push registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
+
+test_docker:
+  stage: testdelivery
+  image: docker:latest
+  services:
+  - docker:dind
+  script:
+  - docker --version
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} check codebeautifier
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} check setup.py
+
+deploy_docker:
+  stage: deploy
+  image: docker:latest
+  services:
+  - docker:dind
+  only:
+  - master
+  script:
+  - docker --version
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+  - docker pull registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
+  - docker tag registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:latest
+  - docker push registry.gitlab.com/ercom/codebeautifier:latest
+
+cleanup_docker:
+  when: always
+  stage: cleanup
+  image: docker:latest
+  services:
+  - docker:dind
+  script:
+  - docker --version
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+  - docker pull hello-world
+  - docker tag hello-world registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
+  - docker push registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
+
