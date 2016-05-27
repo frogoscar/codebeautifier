@@ -21,6 +21,7 @@ if [ x"$1" = x"unittest" ]; then
 	cd /opt
 	if ! /usr/bin/unittest; then
 		echo "Unit test failed !"
+		cat /opt/unittest.log
 		exit 1
 	else
 		exit 0

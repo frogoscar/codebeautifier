@@ -53,8 +53,6 @@ cp tests/python_file_fail.py tests/python_file_fixed.py
 expect_ok "Python, format malformed source" "$CB format tests/python_file_fixed.py"
 expect_ok "Python, check fixed source" "$CB check tests/python_file_fixed.py"
 
-
-
 expect_ok "Python, shebang correctly formed 1" "$CB check tests/python_shebang_ok_1"
 expect_ok "Python, shebang correctly formed 2" "$CB check tests/python_shebang_ok_2"
 expect_ok "Python, shebang correctly formed 3" "$CB check tests/python_shebang_ok_3"
@@ -63,4 +61,10 @@ expect_ok "Python, shebang correctly formed 3" "$CB check tests/python_shebang_o
 expect_ok "Python, shebang malformed 1" "$CB check tests/python_shebang_fail_1"
 expect_ok "Python, shebang malformed 2" "$CB check tests/python_shebang_fail_2"
 expect_ok "Python, shebang malformed 3" "$CB check tests/python_shebang_fail_3"
+
+expect_ok "C++ correctly formed" "$CB check tests/file.cpp"
+expect_nok "C++ malformed" "$CB check tests/file_fail_1.cpp"
+cp tests/file_fail_1.cpp tests/file_fail_1.cpp
+expect_ok "Format C++ malformed" "$CB format tests/file_fail_1.cpp"
+expect_ok "Check C++ formatted" "$CB check tests/file_fail_1.cpp"
 

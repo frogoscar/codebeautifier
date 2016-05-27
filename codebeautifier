@@ -857,7 +857,7 @@ class CodeBeautifier(object):
                               self.parsed_args.clang_format, [
                                   "-i",
                                   "-style",
-                                  '{{BasedOnStyle: Google}}'
+                                  'Google'
                               ], self.parsed_args.quiet)
 
             self.add_tool(
