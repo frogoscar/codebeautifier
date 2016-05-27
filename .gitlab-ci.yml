@@ -12,9 +12,11 @@ test_ubuntu1604:
   image: ubuntu:16.04
   script:
   - apt update
-  - apt install -yyq python3-pip pylint pylint3
+  - apt install -yyq python3-pip pylint pylint3 clang-format-3.8 curl
   - pip3 install colorlog
   - pip3 install autopep8
+  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
+  - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
   - ./codebeautifier check codebeautifier
@@ -25,9 +27,12 @@ test_ubuntu1510:
   image: ubuntu:15.10
   script:
   - apt update
-  - apt install -yyq python3-pip pylint pylint3
+  - apt install -yyq python3-pip pylint pylint3 clang-format-3.7 curl
   - pip3 install colorlog
   - pip3 install autopep8
+  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
+  - chmod a+x /usr/bin/cpplint
+  - chmod a+x cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
   - ./codebeautifier check codebeautifier
