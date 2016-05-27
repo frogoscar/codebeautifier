@@ -32,7 +32,7 @@ test_ubuntu1510:
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
-  - chmod a+x cpplint
+  - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
   - ./codebeautifier check codebeautifier
