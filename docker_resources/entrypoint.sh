@@ -17,6 +17,16 @@ if [ x"$1" = x"--help" ]; then
 	exit 0
 fi
 
+if [ x"$1" = x"unittest" ]; then
+	cd /opt
+	if ! /usr/bin/unittest; then
+		echo "Unit test failed !"
+		exit 1
+	else
+		exit 0
+	fi
+fi
+
 if [ x"$1" != x"check" -a x"$1" != x"format" ]; then
 	echo "Unknow command"
 	usage

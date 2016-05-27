@@ -16,6 +16,7 @@ test_ubuntu1604:
   - pip3 install colorlog
   - pip3 install autopep8
   - ./codebeautifier --help
+  - ./unittest.sh ./codebeautifier
   - ./codebeautifier check codebeautifier
   - ./codebeautifier check setup.py
 
@@ -28,6 +29,7 @@ test_ubuntu1510:
   - pip3 install colorlog
   - pip3 install autopep8
   - ./codebeautifier --help
+  - ./unittest.sh ./codebeautifier
   - ./codebeautifier check codebeautifier
   - ./codebeautifier check setup.py
 
@@ -50,6 +52,7 @@ test_docker:
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+  - docker run registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} unittest
   - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} check codebeautifier
   - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} check setup.py
 
