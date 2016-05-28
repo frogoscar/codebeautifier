@@ -40,5 +40,6 @@ if [ ! -d /var/input ]; then
 	exit 1
 fi
 
-/usr/bin/codebeautifier $1 /var/input/$2
+cd /var/input
+/usr/bin/codebeautifier $@
 exit $?

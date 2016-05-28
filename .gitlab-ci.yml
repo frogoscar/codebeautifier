@@ -19,8 +19,8 @@ test_ubuntu1604:
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check codebeautifier
-  - ./codebeautifier check setup.py
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
 
 test_ubuntu1510:
   stage: test
@@ -35,14 +35,12 @@ test_ubuntu1510:
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check codebeautifier
-  - ./codebeautifier check setup.py
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
 
 build_docker:
   stage: build
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   script:
   - docker --version
   - docker build -t registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} .
@@ -51,21 +49,17 @@ build_docker:
 
 test_docker:
   stage: testdelivery
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
   - docker run registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} unittest
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check codebeautifier
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check setup.py
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S codebeautifier
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S setup.py
 
 deploy_docker_master:
   stage: deploy
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   only:
   - master
   script:
@@ -77,9 +71,7 @@ deploy_docker_master:
 
 deploy_docker_tag:
   stage: deploy
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   only:
   - tags
   script:
@@ -94,9 +86,7 @@ deploy_docker_tag:
 cleanup_docker:
   when: always
   stage: cleanup
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
