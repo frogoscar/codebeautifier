@@ -33,8 +33,8 @@ test_ubuntu1510:
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check codebeautifier
-  - ./codebeautifier check setup.py
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
 
 test_ubuntu1404:
   stage: test
@@ -42,6 +42,21 @@ test_ubuntu1404:
   script:
   - apt update
   - apt install -yyq python3-pip pylint clang-format-3.6 curl
+  - pip3 install colorlog
+  - pip3 install autopep8
+  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
+  - chmod a+x /usr/bin/cpplint
+  - ./codebeautifier --help
+  - ./unittest.sh ./codebeautifier
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
+
+test_debian_jessie:
+  stage: test
+  image: debian:jessie
+  script:
+  - apt update
+  - apt install -yyq python3-pip pylint clang-format-3.5 curl
   - pip3 install colorlog
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
