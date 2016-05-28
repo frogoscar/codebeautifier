@@ -1,4 +1,3 @@
-
 stages:
   - test
   - build
@@ -32,6 +31,20 @@ test_ubuntu1510:
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
+  - ./codebeautifier --help
+  - ./unittest.sh ./codebeautifier
+  - ./codebeautifier check codebeautifier
+  - ./codebeautifier check setup.py
+
+test_ubuntu1404:
+  stage: test
+  image: ubuntu:14.04
+  script:
+  - apt update
+  - apt install -yyq python3-pip pylint clang-format-3.6 curl
+  - pip3 install colorlog
+  - pip3 install autopep8
+  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
