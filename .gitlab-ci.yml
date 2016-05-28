@@ -58,8 +58,8 @@ test_docker:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
   - docker run registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} unittest
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check codebeautifier
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check setup.py
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S codebeautifier
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S setup.py
 
 deploy_docker_master:
   stage: deploy
