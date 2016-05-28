@@ -40,9 +40,7 @@ test_ubuntu1510:
 
 build_docker:
   stage: build
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   script:
   - docker --version
   - docker build -t registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} .
@@ -51,9 +49,7 @@ build_docker:
 
 test_docker:
   stage: testdelivery
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
@@ -63,9 +59,7 @@ test_docker:
 
 deploy_docker_master:
   stage: deploy
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   only:
   - master
   script:
@@ -77,9 +71,7 @@ deploy_docker_master:
 
 deploy_docker_tag:
   stage: deploy
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   only:
   - tags
   script:
@@ -94,9 +86,7 @@ deploy_docker_tag:
 cleanup_docker:
   when: always
   stage: cleanup
-  image: docker:latest
-  services:
-  - docker:dind
+  image: gitlab/dind
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
