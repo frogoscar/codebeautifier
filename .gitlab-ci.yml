@@ -19,8 +19,8 @@ test_ubuntu1604:
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check codebeautifier
-  - ./codebeautifier check setup.py
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
 
 test_ubuntu1510:
   stage: test
@@ -35,8 +35,8 @@ test_ubuntu1510:
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check codebeautifier
-  - ./codebeautifier check setup.py
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
 
 build_docker:
   stage: build
