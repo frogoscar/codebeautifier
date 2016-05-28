@@ -45,9 +45,9 @@ build_docker:
   - docker:dind
   script:
   - docker --version
-  - docker build -t registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} .
+  - docker build -t registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} .
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker push registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
+  - docker push registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
 
 test_docker:
   stage: testdelivery
@@ -57,11 +57,11 @@ test_docker:
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker run registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} unittest
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} check codebeautifier
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} check setup.py
+  - docker run registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} unittest
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check codebeautifier
+  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check setup.py
 
-deploy_docker:
+deploy_docker_master:
   stage: deploy
   image: docker:latest
   services:
@@ -71,8 +71,24 @@ deploy_docker:
   script:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker pull registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
-  - docker tag registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:latest
+  - docker pull registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
+  - docker tag registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:master
+  - docker push registry.gitlab.com/ercom/codebeautifier:master
+
+deploy_docker_tag:
+  stage: deploy
+  image: docker:latest
+  services:
+  - docker:dind
+  only:
+  - tags
+  script:
+  - docker --version
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+  - docker pull registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
+  - docker tag registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_TAG}
+  - docker tag registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:latest
+  - docker push registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_TAG}
   - docker push registry.gitlab.com/ercom/codebeautifier:latest
 
 cleanup_docker:
@@ -85,6 +101,6 @@ cleanup_docker:
   - docker --version
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
   - docker pull hello-world
-  - docker tag hello-world registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
-  - docker push registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_REF_NAME}
+  - docker tag hello-world registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
+  - docker push registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
 
