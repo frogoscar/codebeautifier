@@ -66,6 +66,21 @@ test_debian_jessie:
   - ./codebeautifier check -S codebeautifier
   - ./codebeautifier check -S setup.py
 
+test_fedora_23:
+  stage: test
+  image: fedora:23
+  script:
+  - dnf -y update
+  - dnf -y install python3-pip clang curl pylint python3-pylint
+  - python3 -m pip install colorlog
+  - python3 -m pip install autopep8
+  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
+  - chmod a+x /usr/bin/cpplint
+  - ./codebeautifier --help
+  - ./unittest.sh ./codebeautifier
+  - ./codebeautifier check -S codebeautifier
+  - ./codebeautifier check -S setup.py
+
 build_docker:
   stage: build
   image: gitlab/dind
