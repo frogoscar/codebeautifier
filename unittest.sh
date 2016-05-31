@@ -68,3 +68,5 @@ cp tests/file_fail_1.cpp tests/file_fixed_1.cpp
 expect_ok "Format C++ malformed" "$CB format tests/file_fixed_1.cpp"
 expect_ok "Check C++ formatted" "$CB check -S tests/file_fixed_1.cpp"
 
+expect_ok "Java correctly formed" "$CB check -S tests/JavaOk.java"
+expect_nok "Java malformed" "$CB check -S tests/JavaFail.java"
