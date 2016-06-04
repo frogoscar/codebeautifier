@@ -46,6 +46,10 @@ The table below shows the tools used by Codebeautifier.
 that resides in the `helpers/` directory. It will download checkstyle 6.14.1.jar, install it
 in your system along with a shell wrapper. This is needed because codebeautifier requires
 checkstyle v6.2 minimum.
+[*] For Fedora version 23, checkstyle is not working. So java support is disabled until it
+will be fixed. You can use java checks with a recent checkstyle version which remove the
+dependency to apache common langs. But no official support for this configuration. Use it
+at your own risk.
 
 
 General Usage

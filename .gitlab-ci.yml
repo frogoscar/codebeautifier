@@ -80,7 +80,7 @@ test_fedora_23:
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
-  - ./unittest.sh ./codebeautifier
+  - JAVA_CHECK=no ./unittest.sh ./codebeautifier
   - ./codebeautifier check -S codebeautifier
   - ./codebeautifier check -S setup.py
 
