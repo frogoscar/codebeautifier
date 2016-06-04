@@ -11,7 +11,7 @@ test_ubuntu1604:
   image: ubuntu:16.04
   script:
   - apt update
-  - apt install -yyq python3-pip pylint pylint3 clang-format-3.8 curl
+  - apt install -yyq python3-pip pylint pylint3 clang-format-3.8 curl checkstyle
   - pip3 install colorlog
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
@@ -26,11 +26,12 @@ test_ubuntu1510:
   image: ubuntu:15.10
   script:
   - apt update
-  - apt install -yyq python3-pip pylint pylint3 clang-format-3.7 curl
+  - apt install -yyq python3-pip pylint pylint3 clang-format-3.7 curl wget sudo openjdk-8-jre
   - pip3 install colorlog
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
+  - ./helpers/checkstyle-install-generic
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
   - ./codebeautifier check -S codebeautifier
@@ -41,11 +42,12 @@ test_ubuntu1404:
   image: ubuntu:14.04
   script:
   - apt update
-  - apt install -yyq python3-pip pylint clang-format-3.6 curl
+  - apt install -yyq python3-pip pylint clang-format-3.6 curl wget sudo openjdk-7-jre
   - pip3 install colorlog
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
+  - ./helpers/checkstyle-install-generic
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
   - ./codebeautifier check -S codebeautifier
@@ -56,11 +58,12 @@ test_debian_jessie:
   image: debian:jessie
   script:
   - apt update
-  - apt install -yyq python3-pip pylint clang-format-3.5 curl
+  - apt install -yyq python3-pip pylint clang-format-3.5 curl wget sudo openjdk-7-jre
   - pip3 install colorlog
   - pip3 install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
+  - ./helpers/checkstyle-install-generic
   - ./codebeautifier --help
   - ./unittest.sh ./codebeautifier
   - ./codebeautifier check -S codebeautifier
@@ -71,13 +74,13 @@ test_fedora_23:
   image: fedora:23
   script:
   - dnf -y update
-  - dnf -y install python3-pip clang curl pylint python3-pylint
+  - dnf -y install python3-pip clang curl pylint python3-pylint checkstyle
   - python3 -m pip install colorlog
   - python3 -m pip install autopep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
   - ./codebeautifier --help
-  - ./unittest.sh ./codebeautifier
+  - JAVA_CHECK=no ./unittest.sh ./codebeautifier
   - ./codebeautifier check -S codebeautifier
   - ./codebeautifier check -S setup.py
 

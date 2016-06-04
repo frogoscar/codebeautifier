@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-RUN apt update && apt install -yyq python3-pip pylint pylint3 clang-format-3.8
+RUN apt update && apt install -yyq python3-pip pylint pylint3 clang-format-3.8 checkstyle
 RUN pip3 install colorlog autopep8
 
 ADD https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py /usr/bin/cpplint
