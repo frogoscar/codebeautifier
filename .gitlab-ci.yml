@@ -115,6 +115,21 @@ test_docker:
   - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S codebeautifier
   - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S setup.py
 
+test_deb:
+  stage: testdelivery
+  image: ubuntu:16.04
+  script:
+  - ls
+  - apt update
+  - dpkg -i python-codebeautifier_*.deb || /bin/true
+  - apt-get install -yyq -f
+  - codebeautifier --help # Check that code beautifier can start (so if all required dependencies are installed)
+  - apt install -yyq python3-pip pylint pylint3 clang-format-3.8 curl checkstyle
+  - pip3 install pep8 autopep8
+  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
+  - chmod a+x /usr/bin/cpplint
+  - ./unittest.sh $(which codebeautifier)
+
 deploy_docker_master:
   stage: deploy
   image: gitlab/dind
