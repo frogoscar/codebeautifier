@@ -93,6 +93,18 @@ build_docker:
   - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
   - docker push registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
 
+build_deb:
+  stage: build
+  image: ubuntu:16.04
+  script:
+  - apt update
+  - apt install -yyq ruby-dev build-essential python3-pip
+  - gem install fpm
+  - fpm -s python -t deb --no-auto-depends --depends python3-colorlog --depends python3 --python-pip /usr/bin/pip3 --python-bin /usr/bin/python3 setup.py
+  artifacts:
+    paths:
+    - python-codebeautifier_*.deb
+
 test_docker:
   stage: testdelivery
   image: gitlab/dind
