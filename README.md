@@ -6,6 +6,9 @@ and code formatters by offering a generic interface.
 It can be used by developpers before forging a commit and by scripts which
 automate code style checking within the integration process.
 
+Status
+------
+[![build status](https://gitlab.com/ercom/codebeautifier/badges/master/build.svg)](https://gitlab.com/ercom/codebeautifier/commits/master)
 
 Installation
 ------------
