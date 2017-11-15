@@ -1,169 +1,82 @@
 stages:
   - test
   - build
-  - testdelivery
-  - deploy
-  - cleanup
 
+variables:
+  CITBX_UID: 0
 
-test_ubuntu1604:
+.test: &test
   stage: test
+  script:
+    - eval "$INSTALL_DEPS"
+    - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
+    - chmod a+x /usr/bin/cpplint
+    - ./codebeautifier --help
+    - ./unittest.sh ./codebeautifier
+    - ./codebeautifier check -S codebeautifier
+    - ./codebeautifier check -S setup.py
+
+test-ubuntu-16.04:
   image: ubuntu:16.04
-  script:
-  - apt update
-  - apt install -yyq python3-pip pylint pylint3 clang-format-3.8 curl checkstyle
-  - pip3 install colorlog
-  - pip3 install autopep8
-  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
-  - chmod a+x /usr/bin/cpplint
-  - ./codebeautifier --help
-  - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check -S codebeautifier
-  - ./codebeautifier check -S setup.py
+  variables:
+    INSTALL_DEPS: "apt update && apt install -yyq python3-colorlog python-autopep8 python-pep8 pylint pylint3 clang-format-3.8 curl checkstyle"
+  <<: *test
 
-test_ubuntu1510:
-  stage: test
-  image: ubuntu:15.10
-  script:
-  - apt update
-  - apt install -yyq python3-pip pylint pylint3 clang-format-3.7 curl wget sudo openjdk-8-jre
-  - pip3 install colorlog
-  - pip3 install autopep8
-  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
-  - chmod a+x /usr/bin/cpplint
-  - ./helpers/checkstyle-install-generic
-  - ./codebeautifier --help
-  - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check -S codebeautifier
-  - ./codebeautifier check -S setup.py
+test-ubuntu-17.10:
+  image: ubuntu:17.10
+  variables:
+    INSTALL_DEPS: "apt update && apt install -yyq python3-colorlog python-autopep8 python-pep8 pylint pylint3 clang-format-3.8 curl checkstyle"
+  <<: *test
 
-test_ubuntu1404:
-  stage: test
-  image: ubuntu:14.04
-  script:
-  - apt update
-  - apt install -yyq python3-pip pylint clang-format-3.6 curl wget sudo openjdk-7-jre
-  - pip3 install colorlog
-  - pip3 install autopep8
-  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
-  - chmod a+x /usr/bin/cpplint
-  - ./helpers/checkstyle-install-generic
-  - ./codebeautifier --help
-  - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check -S codebeautifier
-  - ./codebeautifier check -S setup.py
+test-debian-9.2:
+  image: debian:9.2
+  variables:
+    INSTALL_DEPS: "apt update && apt install -yyq python3-colorlog python-autopep8 python3-pep8 pylint pylint3 clang-format-3.8 curl checkstyle"
+  <<: *test
 
-test_debian_jessie:
-  stage: test
-  image: debian:jessie
-  script:
-  - apt update
-  - apt install -yyq python3-pip pylint clang-format-3.5 curl wget sudo openjdk-7-jre
-  - pip3 install colorlog
-  - pip3 install autopep8
-  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
-  - chmod a+x /usr/bin/cpplint
-  - ./helpers/checkstyle-install-generic
-  - ./codebeautifier --help
-  - ./unittest.sh ./codebeautifier
-  - ./codebeautifier check -S codebeautifier
-  - ./codebeautifier check -S setup.py
+test-fedora-27:
+  image: fedora:27
+  variables:
+    INSTALL_DEPS: "dnf -y update && dnf -y install python3-colorlog python-autopep8 python-pep8 clang curl pylint python3-pylint checkstyle"
+    JAVA_CHECK: "no"
+  <<: *test
 
-test_fedora_23:
-  stage: test
-  image: fedora:23
-  script:
-  - dnf -y update
-  - dnf -y install python3-pip clang curl pylint python3-pylint checkstyle
-  - python3 -m pip install colorlog
-  - python3 -m pip install autopep8
-  - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
-  - chmod a+x /usr/bin/cpplint
-  - ./codebeautifier --help
-  - JAVA_CHECK=no ./unittest.sh ./codebeautifier
-  - ./codebeautifier check -S codebeautifier
-  - ./codebeautifier check -S setup.py
-
-build_docker:
+build-docker:
   stage: build
-  image: gitlab/dind
+  services:
+  - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay
+    DOCKER_HOST: tcp://docker:2375
+  image: docker:dind
   script:
-  - docker --version
-  - docker build -t registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} .
-  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker push registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
+  - docker build -t codebeautifier .
+  - docker run codebeautifier unittest
+  - if ([ -n "$CI_COMMIT_TAG" ] || [ "$CI_COMMIT_REF_NAME" == "master" ]) && [ -n "$CI_BUILD_TOKEN" ]; then
+        docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN ${CI_REGISTRY};
+        docker tag codebeautifier ${CI_REGISTRY_IMAGE}:$CI_COMMIT_REF_NAME;
+        docker push ${CI_REGISTRY_IMAGE}:$CI_COMMIT_REF_NAME;
+        if [ -n "$CI_COMMIT_TAG" ]; then
+            docker tag codebeautifier ${CI_REGISTRY_IMAGE}:latest;
+            docker push ${CI_REGISTRY_IMAGE}:latest;
+        fi;
+    fi
 
-build_deb:
+build-deb:
   stage: build
   image: ubuntu:16.04
   script:
   - apt update
-  - apt install -yyq ruby-dev build-essential python3-pip
+  - apt install -yyq ruby-dev build-essential python3-pip curl
   - gem install fpm
   - fpm -s python -t deb --no-auto-depends --depends python3-colorlog --depends python3 --python-pip /usr/bin/pip3 --python-bin /usr/bin/python3 setup.py
-  artifacts:
-    paths:
-    - python-codebeautifier_*.deb
-
-test_docker:
-  stage: testdelivery
-  image: gitlab/dind
-  script:
-  - docker --version
-  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker run registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} unittest
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S codebeautifier
-  - docker run -v ${PWD}:/var/input registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} check -S setup.py
-
-test_deb:
-  stage: testdelivery
-  image: ubuntu:16.04
-  script:
-  - ls
-  - apt update
   - dpkg -i python-codebeautifier_*.deb || /bin/true
   - apt-get install -yyq -f
   - codebeautifier --help # Check that code beautifier can start (so if all required dependencies are installed)
-  - apt install -yyq python3-pip pylint pylint3 clang-format-3.8 curl checkstyle
-  - pip3 install pep8 autopep8
+  - apt install -yyq pylint pylint3 clang-format-3.8 checkstyle python3-colorlog python-autopep8 python-pep8
   - curl https://raw.githubusercontent.com/google/styleguide/gh-pages/cpplint/cpplint.py > /usr/bin/cpplint
   - chmod a+x /usr/bin/cpplint
   - ./unittest.sh $(which codebeautifier)
-
-deploy_docker_master:
-  stage: deploy
-  image: gitlab/dind
-  only:
-  - master
-  script:
-  - docker --version
-  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker pull registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
-  - docker tag registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:master
-  - docker push registry.gitlab.com/ercom/codebeautifier:master
-
-deploy_docker_tag:
-  stage: deploy
-  image: gitlab/dind
-  only:
-  - tags
-  script:
-  - docker --version
-  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker pull registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
-  - docker tag registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_TAG}
-  - docker tag registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME} registry.gitlab.com/ercom/codebeautifier:latest
-  - docker push registry.gitlab.com/ercom/codebeautifier:${CI_BUILD_TAG}
-  - docker push registry.gitlab.com/ercom/codebeautifier:latest
-
-cleanup_docker:
-  when: always
-  stage: cleanup
-  image: gitlab/dind
-  script:
-  - docker --version
-  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-  - docker pull hello-world
-  - docker tag hello-world registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
-  - docker push registry.gitlab.com/ercom/codebeautifier:ci-${CI_BUILD_REF_NAME}
-
+  artifacts:
+    paths:
+    - python-codebeautifier_*.deb

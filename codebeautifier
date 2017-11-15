@@ -963,5 +963,6 @@ class CodeBeautifier(object):
 
         return CodeBeautifier.status
 
+
 if __name__ == "__main__":
     sys.exit(CodeBeautifier().main(sys.argv))
