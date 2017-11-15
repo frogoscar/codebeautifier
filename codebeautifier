@@ -128,9 +128,10 @@ class Tool(object):
     # pylint: disable=too-many-arguments
     def __init__(self, identifier, program,
                  common_arguments=None, quiet=False,
-                 command_filter=None):
+                 print_badlist=False, command_filter=None):
         self.program = program
         self.quiet = quiet
+        self.print_badlist = print_badlist
         self.identifier = identifier
         if common_arguments is None:
             common_arguments = []
@@ -169,7 +170,10 @@ class Tool(object):
         if self.command_filter.filter_command(
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
-            print("\n")
+            if self.print_badlist is True:
+                print("{0}".format(target))
+            else:
+                print("\n")
             raise RuntimeError(
                 "\"{0}\" does not respect coding rules. You may run "
                 "\"codebeautifier format {0}\" to correct formatting issues"
@@ -536,15 +540,21 @@ class CodeBeautifier(object):
     status = 0
 
     @staticmethod
-    def logger_init(level):
+    def logger_init(level, is_colored):
         """Initializes the logger
 
         Args:
             level: The log level of the logger to be initialized
         """
 
+        if is_colored:
+            log_format = "%(log_color)s[%(levelname)-8s]%(reset)s %(message)s"
+        else:
+            log_format = "[%(levelname)-8s] %(message)s"
+
+        CodeBeautifier.logger = logging.getLogger("codebeautifier")
         formatter = ColoredFormatter(
-            "%(log_color)s[%(levelname)-8s]%(reset)s %(message)s",
+            log_format,
             datefmt=None,
             reset=True,
             log_colors={
@@ -556,7 +566,6 @@ class CodeBeautifier(object):
             })
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
-        CodeBeautifier.logger = logging.getLogger("codebeautifier")
         CodeBeautifier.logger.addHandler(handler)
         CodeBeautifier.logger.setLevel(level)
 
@@ -718,7 +727,7 @@ class CodeBeautifier(object):
                                    type=str, default="astyle")
         # format_parser.add_argument('--line-length', "-l", help='Line length',
         #                           type=int, default=80)
-        format_parser.add_argument("targets", type=str, nargs="+",
+        format_parser.add_argument("targets", type=str, nargs="*",
                                    metavar="files or directories")
         format_parser.add_argument(
             "--ignored-paths",
@@ -748,11 +757,29 @@ class CodeBeautifier(object):
             default="checkstyle")
         check_parser.add_argument('--autopep8', '-A', help='Path to autopep8',
                                   type=str, default="autopep8")
-        check_parser.add_argument("targets", type=str, nargs="+",
+        check_parser.add_argument("targets", type=str, nargs="*",
                                   metavar="files or directories")
         check_parser.add_argument("--ignored-paths", "-e", type=str, nargs="*",
                                   metavar="Unprocessed paths")
         check_parser.add_argument("--strict", "-S", action='store_true')
+        check_parser.add_argument('--color', help='Color mode',
+                                  type=str, default="auto")
+        check_parser.add_argument("--print-badlist", dest='print_badlist',
+                                  action='store_true')
+        check_parser.add_argument('--inc-list', action='append',
+                                  dest='inclistf',
+                                  default=[],
+                                  help='Add a file containing '
+                                  'paths to include')
+        check_parser.add_argument('--exc-list', action='append',
+                                  dest='exclistf',
+                                  default=[],
+                                  help='Add a file containing paths to exlude')
+        check_parser.add_argument('--exc-list-regex', action='append',
+                                  dest='exclistfregex',
+                                  default=[],
+                                  help='Add a file containing paths to exlude '
+                                  '(regex format)')
 
         return parser.parse_args(raw_args[1:])
 
@@ -762,7 +789,8 @@ class CodeBeautifier(object):
         self.parsed_args = None
 
     # pylint: disable=too-many-arguments
-    def add_tool(self, identifier, command, arguments, quiet, filter_cmd=None):
+    def add_tool(self, identifier, command, arguments,
+                 quiet, print_badlist, filter_cmd=None):
         """Registers a program in the commands table
 
         Args:
@@ -779,7 +807,8 @@ class CodeBeautifier(object):
         else:
             self.logger.debug("{0} found".format(command))
             self.tools.append(
-                Tool(identifier, res, arguments, quiet, filter_cmd))
+                Tool(identifier, res, arguments, quiet,
+                     print_badlist, filter_cmd))
 
     def initialize_processors(self):
         """
@@ -804,26 +833,30 @@ class CodeBeautifier(object):
                               "-whitespace/comments,"
                               "-runtime/int,"
                               "-build/c++11,-runtime/references"
-                          ], self.parsed_args.quiet)
+                          ], self.parsed_args.quiet,
+                          self.parsed_args.print_badlist)
 
             # Pylint2
             self.add_tool(Tool.ToolId.PYLINT2,
                           self.parsed_args.pylint2, [
                               "--reports=no",
                               "--disable=locally-disabled"
-                          ], self.parsed_args.quiet)
+                          ], self.parsed_args.quiet,
+                          self.parsed_args.print_badlist)
 
             # Pylint3
             self.add_tool(Tool.ToolId.PYLINT3,
                           self.parsed_args.pylint3, [
                               "--reports=no",
                               "--disable=locally-disabled"
-                          ], self.parsed_args.quiet)
+                          ], self.parsed_args.quiet,
+                          self.parsed_args.print_badlist)
 
             # Pep8
             self.add_tool(Tool.ToolId.PEP8,
                           self.parsed_args.pep8, [
-                          ], self.parsed_args.quiet)
+                          ], self.parsed_args.quiet,
+                          self.parsed_args.print_badlist)
 
             # Checkstyle
             self.add_tool(Tool.ToolId.CHECKSTYLE,
@@ -831,6 +864,7 @@ class CodeBeautifier(object):
                               "-c",
                               "/google_checks.xml"
                           ], self.parsed_args.quiet,
+                          self.parsed_args.print_badlist,
                           Tool.CheckstyleFilter())
 
         except RuntimeError as exception:
@@ -858,19 +892,19 @@ class CodeBeautifier(object):
                                   "-i",
                                   "-style",
                                   'Google'
-                              ], self.parsed_args.quiet)
+                              ], False, self.parsed_args.quiet)
 
             self.add_tool(
                 Tool.ToolId.ASTYLE, self.parsed_args.astyle, [
                     "--style=google"  # ,
-                ], self.parsed_args.quiet
+                ], False, self.parsed_args.quiet
             )
 
             self.add_tool(
                 Tool.ToolId.AUTOPEP8, self.parsed_args.autopep8, [
                     "--in-place",
                     "--aggressive"
-                ], self.parsed_args.quiet
+                ], False, self.parsed_args.quiet
             )
 
         except RuntimeError as exception:
@@ -893,7 +927,24 @@ class CodeBeautifier(object):
             log_level = logging.DEBUG
         elif self.parsed_args.quiet is True:
             log_level = logging.WARNING
-        CodeBeautifier.logger_init(log_level)
+
+        log_color = True
+        try:
+            if self.parsed_args.color == "none":
+                log_color = False
+        except AttributeError:
+            pass
+
+        CodeBeautifier.print_badlist = False
+        try:
+            if self.parsed_args.print_badlist is True:
+                log_level = logging.CRITICAL
+                self.parsed_args.quiet = True
+                CodeBeautifier.print_badlist = True
+        except AttributeError:
+            pass
+
+        CodeBeautifier.logger_init(log_level, log_color)
 
         if self.parsed_args.function is None:
             raise AttributeError("Missing positional argument")
@@ -921,12 +972,6 @@ class CodeBeautifier(object):
             print("*** ERROR: {0}".format(exception))
             return 2
 
-        ignores = []
-        if self.parsed_args.ignored_paths:
-            for ign in self.parsed_args.ignored_paths:
-                regex = re.compile(ign)
-                ignores.append(regex)
-
         # ===
         # Processing
         # ===
@@ -935,7 +980,46 @@ class CodeBeautifier(object):
             def func_to_execute(x, y): x.format_file(y)
         else:
             def func_to_execute(x, y): x.check_file(y)
-        for target in self.parsed_args.targets:
+
+        targets = self.parsed_args.targets
+        try:
+            for fname in self.parsed_args.inclistf:
+                if fname == "-":
+                    for line in sys.stdin.read().splitlines():
+                        targets.append(line)
+                else:
+                    with open(fname, "r") as f:
+                        for line in f.read().splitlines():
+                            targets.append(line)
+        except AttributeError:
+            pass
+
+        ignores = []
+        if self.parsed_args.ignored_paths:
+            for ign in self.parsed_args.ignored_paths:
+                regex = re.compile(ign)
+                ignores.append(regex)
+        try:
+            for fname in self.parsed_args.exclistf:
+                with open(fname, "r") as f:
+                    for ign in f.read().splitlines():
+                        regex = re.compile(re.escape(ign))
+                        ignores.append(regex)
+        except AttributeError:
+            pass
+        try:
+            for fname in self.parsed_args.exclistfregex:
+                with open(fname, "r") as f:
+                    for ign in f.read().splitlines():
+                        regex = re.compile(ign)
+                        ignores.append(regex)
+        except AttributeError:
+            pass
+
+        if not targets:
+            CodeBeautifier.logger.error("No file to process")
+
+        for target in targets:
             if not os.path.exists(target):
                 CodeBeautifier.logger.error(
                     "Cannot process path \"{0}\" because it "
