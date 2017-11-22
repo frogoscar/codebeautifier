@@ -36,6 +36,7 @@ import logging
 from colorlog import ColoredFormatter
 from abc import abstractmethod
 from enum import IntEnum, unique
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Tool(object):
@@ -150,30 +151,27 @@ class Tool(object):
         if arguments is None:
             arguments = []
         command = [self.program] + self.common_arguments + arguments + [target]
-        CodeBeautifier.logger.info(command)
+        CodeBeautifier.logger.info("Processing file {0} ...".format(target))
+        CodeBeautifier.logger.debug(command)
         proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         out, err = proc.communicate()
         out = out.decode('UTF-8').splitlines()
         err = err.decode('UTF-8').splitlines()
 
-        if self.quiet is False:
-            if out:
-                print("STDOUT:")
-                for out_line in out:
-                    print(out_line)
-            if err:
-                print("STDERR:")
-                for err_line in err:
-                    print(err_line)
+        if out:
+            for out_line in out:
+                CodeBeautifier.logger.debug(out_line)
+        if err:
+            for err_line in err:
+                CodeBeautifier.logger.warning(err_line)
 
         if self.command_filter.filter_command(
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
+            CodeBeautifier.failure_list.append(target)
             if self.print_badlist is True:
                 print("{0}".format(target))
-            else:
-                print("\n")
             raise RuntimeError(
                 "\"{0}\" does not respect coding rules. You may run "
                 "\"codebeautifier format {0}\" to correct formatting issues"
@@ -538,6 +536,7 @@ class CodeBeautifier(object):
 
     logger = None
     status = 0
+    failure_list = []
 
     @staticmethod
     def logger_init(level, is_colored):
@@ -683,7 +682,7 @@ class CodeBeautifier(object):
                             FileProcessor.Status.list_to_string(all_errors)
                         )
                     )
-                    sys.exit(2)
+                    CodeBeautifier.status = 2
                 else:
                     CodeBeautifier.logger.warning(
                         "\"{0}\" was not processed ({1})".format(
@@ -713,6 +712,8 @@ class CodeBeautifier(object):
                                          description='Coding style helper')
         parser.add_argument('--verbose', '-v', action='store_true')
         parser.add_argument('--quiet', '-q', action='store_true')
+        parser.add_argument('--jobs', '-j', type=int, default=1,
+                            help='Number of parallel jobs')
         root_subparser = parser.add_subparsers(dest="function")
 
         # FORMAT
@@ -1019,6 +1020,8 @@ class CodeBeautifier(object):
         if not targets:
             CodeBeautifier.logger.error("No file to process")
 
+        executor = ThreadPoolExecutor(max_workers=self.parsed_args.jobs)
+        task_list = []
         for target in targets:
             if not os.path.exists(target):
                 CodeBeautifier.logger.error(
@@ -1034,16 +1037,33 @@ class CodeBeautifier(object):
             if os.path.isdir(target):
                 for root, _, files in os.walk(target):
                     for afile in files:
-                        CodeBeautifier.process_file(
-                            root + '/' + afile,
-                            self.processors,
-                            self.parsed_args.strict, ignores, func_to_execute
+                        task_list.append(
+                            executor.submit(
+                                CodeBeautifier.process_file,
+                                root + '/' + afile,
+                                self.processors,
+                                self.parsed_args.strict,
+                                ignores, func_to_execute
+                            )
                         )
             else:
-                CodeBeautifier.process_file(
+                task_list.append(executor.submit(
+                    CodeBeautifier.process_file,
                     target, self.processors, self.parsed_args.strict,
                     ignores, func_to_execute
-                )
+                ))
+        try:
+            executor.shutdown()
+        except KeyboardInterrupt:
+            for t in task_list:
+                t.cancel()
+            CodeBeautifier.status = 130
+
+        if CodeBeautifier.failure_list:
+            CodeBeautifier.logger.error("")
+            CodeBeautifier.logger.error("List of failure:")
+            for file in CodeBeautifier.failure_list:
+                CodeBeautifier.logger.error("    {0}".format(file))
 
         return CodeBeautifier.status
 
