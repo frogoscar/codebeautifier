@@ -48,7 +48,8 @@ build-docker:
   variables:
     DOCKER_DRIVER: overlay
     DOCKER_HOST: tcp://docker:2375
-  image: docker:dind
+  # NOTE: VARIABLE DO BE DEFINED into the project settings (gitlab.example.com/group/project/settings/ci_cd)
+  image: $BUILD_DOCKER_IMAGE_NAME
   script:
   - docker build -t codebeautifier .
   - docker run codebeautifier unittest
