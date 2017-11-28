@@ -43,13 +43,13 @@ test-fedora-27:
 
 build-docker:
   stage: build
-  services:
-  - docker:dind
   variables:
     DOCKER_DRIVER: overlay
     DOCKER_HOST: tcp://docker:2375
-  # NOTE: VARIABLE DO BE DEFINED into the project settings (gitlab.example.com/group/project/settings/ci_cd)
-  image: $BUILD_DOCKER_IMAGE_NAME
+  services:
+  - alias: docker
+    name: registry.gitlab.com/ercom/docker:17.11.0-ce-dind
+  image: registry.gitlab.com/ercom/docker:17.11.0-ce-git
   script:
   - docker build -t codebeautifier .
   - docker run codebeautifier unittest
