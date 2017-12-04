@@ -169,7 +169,11 @@ class Tool(object):
         if self.command_filter.filter_command(
                 proc.returncode, out, err) is False:
             CodeBeautifier.status = -1
-            CodeBeautifier.failure_list.append(target)
+            CodeBeautifier.error_summary.append("  * {0}".format(target))
+            for line in out + err:
+                CodeBeautifier.error_summary.append(
+                    "        {0}".format(line))
+            CodeBeautifier.error_summary.append("")
             if self.print_badlist is True:
                 print("{0}".format(target))
             raise RuntimeError(
@@ -536,7 +540,7 @@ class CodeBeautifier(object):
 
     logger = None
     status = 0
-    failure_list = []
+    error_summary = []
 
     @staticmethod
     def logger_init(level, is_colored):
@@ -1059,11 +1063,11 @@ class CodeBeautifier(object):
                 t.cancel()
             CodeBeautifier.status = 130
 
-        if CodeBeautifier.failure_list:
+        if CodeBeautifier.error_summary:
             CodeBeautifier.logger.error("")
-            CodeBeautifier.logger.error("List of failure:")
-            for file in CodeBeautifier.failure_list:
-                CodeBeautifier.logger.error("    {0}".format(file))
+            CodeBeautifier.logger.error("Error summary:")
+            for line in CodeBeautifier.error_summary:
+                CodeBeautifier.logger.error(line)
 
         return CodeBeautifier.status
 
